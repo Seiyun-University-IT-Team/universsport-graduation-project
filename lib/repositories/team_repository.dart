@@ -14,19 +14,55 @@ class TeamRepository {
   }
 
   Future<void> deleteTeam(String id) async {
-    await _firestore.collection(_collection).doc(id).delete();
+    await _firestore.collection(_collection).doc(id).set({
+      'is_deleted': true,
+      'players': <String>[],
+      'captain_id': null,
+    }, SetOptions(merge: true));
   }
 
-  Stream<List<TeamModel>> getAllTeams() {
+  Stream<TeamModel?> watchTeam(String id) {
+    return _firestore.collection(_collection).doc(id).snapshots().map((doc) {
+      if (!doc.exists) return null;
+      final team = TeamModel.fromFirestore(doc);
+      if (team.isDeleted) return null;
+      return team;
+    });
+  }
+
+  Future<void> addPlayer(String teamId, String userId) async {
+    await _firestore.collection(_collection).doc(teamId).update({
+      'players': FieldValue.arrayUnion([userId]),
+    });
+  }
+
+  Future<void> removePlayer(String teamId, String userId) async {
+    await _firestore.collection(_collection).doc(teamId).update({
+      'players': FieldValue.arrayRemove([userId]),
+    });
+  }
+
+  Future<void> setCaptain(String teamId, String? userId) async {
+    await _firestore.collection(_collection).doc(teamId).update({
+      'captain_id': userId,
+    });
+  }
+
+  Stream<List<TeamModel>> getAllTeams({bool includeDeleted = false}) {
     return _firestore.collection(_collection).snapshots().map((snapshot) {
-      return snapshot.docs.map((doc) => TeamModel.fromFirestore(doc)).toList();
+      final teams = snapshot.docs
+          .map((doc) => TeamModel.fromFirestore(doc))
+          .toList();
+      if (includeDeleted) return teams;
+      return teams.where((team) => !team.isDeleted).toList();
     });
   }
 
   Future<TeamModel?> getTeamById(String id) async {
     final doc = await _firestore.collection(_collection).doc(id).get();
     if (doc.exists) {
-      return TeamModel.fromFirestore(doc);
+      final team = TeamModel.fromFirestore(doc);
+      if (!team.isDeleted) return team;
     }
     return null;
   }

@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum UserRole { student, admin }
+enum UserRole { student, admin, supervisor }
 
 class UserModel {
   final String id;
@@ -24,6 +24,7 @@ class UserModel {
   });
 
   bool get isAdmin => role == UserRole.admin;
+  bool get isSupervisor => role == UserRole.supervisor;
   bool get isStudent => role == UserRole.student;
 
   Map<String, dynamic> toMap() {

@@ -74,7 +74,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               );
                               if (!context.mounted) return;
                               if (authProvider.isAuthenticated) {
-                                if (authProvider.currentUser!.isAdmin) {
+                                if (authProvider.currentUser!.isAdmin ||
+                                    authProvider.currentUser!.isSupervisor) {
                                   context.go('/admin_dashboard');
                                 } else {
                                   context.go('/student_home');
@@ -83,7 +84,11 @@ class _LoginScreenState extends State<LoginScreen> {
                             } catch (e) {
                               if (!context.mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('البريد الإلكتروني أو كلمة المرور غير صحيحة')),
+                                const SnackBar(
+                                  content: Text(
+                                    'البريد الإلكتروني أو كلمة المرور غير صحيحة',
+                                  ),
+                                ),
                               );
                             }
                           }
@@ -97,7 +102,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   },
                   child: const Text(
                     'إنشاء حساب جديد',
-                    style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: AppTheme.primaryColor,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
