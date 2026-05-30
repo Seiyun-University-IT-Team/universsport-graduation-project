@@ -143,13 +143,24 @@ class _CreateCompetitionScreenState extends ConsumerState<CreateCompetitionScree
     CompetitionModel competition,
   ) async {
     try {
-      await _notificationRepository.sendToAllStudents(
-        title: 'تم بدء بطولة جديدة',
-        body:
-            'تم إطلاق ${competition.name}. التسجيل متاح الآن من واجهة الطالب.',
-        type: 'tournament_started',
-        relatedId: competition.id,
-      );
+      if (competition.college != null && competition.college!.trim().isNotEmpty) {
+        await _notificationRepository.sendToCollegeStudents(
+          title: 'تم بدء بطولة جديدة',
+          body:
+              'تم إطلاق ${competition.name}. التسجيل متاح الآن من واجهة الطالب.',
+          type: 'tournament_started',
+          college: competition.college!,
+          relatedId: competition.id,
+        );
+      } else {
+        await _notificationRepository.sendToAllStudents(
+          title: 'تم بدء بطولة جديدة',
+          body:
+              'تم إطلاق ${competition.name}. التسجيل متاح الآن من واجهة الطالب.',
+          type: 'tournament_started',
+          relatedId: competition.id,
+        );
+      }
     } catch (e) {
       debugPrint('Tournament notification error: $e');
     }

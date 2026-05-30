@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/team_identity.dart';
 import '../../models/competition_model.dart';
 import '../../models/registration_model.dart';
 import '../../models/team_model.dart';
@@ -26,6 +27,7 @@ class _ManageRegistrationsScreenState extends State<ManageRegistrationsScreen> {
       AppNotificationRepository();
   final CompetitionRepository _competitionRepository = CompetitionRepository();
   final UserRepository _userRepository = UserRepository();
+  final TeamRepository _teamRepository = TeamRepository();
   final Map<String, Future<_RegistrationDetails>> _detailsFutures =
       <String, Future<_RegistrationDetails>>{};
   final Set<String> _updatingRegistrationIds = <String>{};
@@ -52,32 +54,8 @@ class _ManageRegistrationsScreenState extends State<ManageRegistrationsScreen> {
         );
         if (competition != null && competition.type == 'team') {
           final user = await _userRepository.getUserById(registration.userId);
-          if (user != null &&
-              user.college != null &&
-              user.department != null &&
-              user.academicLevel != null) {
-            final teamRepo = TeamRepository();
-            final safeCollege = user.college!.replaceAll(' ', '_');
-            final safeDept = user.department!.replaceAll(' ', '_');
-            final safeLevel = user.academicLevel!.replaceAll(' ', '_');
-            final teamId = '${safeCollege}_${safeDept}_$safeLevel';
-            final teamName = '${user.department} ${user.academicLevel}';
-
-            final existingTeam = await teamRepo.getTeamById(teamId);
-            if (existingTeam == null) {
-              await teamRepo.addTeam(
-                TeamModel(
-                  id: teamId,
-                  name: teamName,
-                  college: user.college!,
-                  players: [user.id],
-                ),
-              );
-            } else {
-              if (!existingTeam.players.contains(user.id)) {
-                await teamRepo.addPlayer(teamId, user.id);
-              }
-            }
+          if (user != null) {
+            await _addStudentToDepartmentLevelTeam(user);
           }
         }
       }
@@ -121,6 +99,48 @@ class _ManageRegistrationsScreenState extends State<ManageRegistrationsScreen> {
       if (mounted) {
         setState(() => _updatingRegistrationIds.remove(registration.id));
       }
+    }
+  }
+
+  Future<void> _addStudentToDepartmentLevelTeam(UserModel user) async {
+    final college = user.college?.trim();
+    final department = user.department?.trim();
+    final academicLevel = user.academicLevel?.trim();
+
+    if (college == null ||
+        college.isEmpty ||
+        department == null ||
+        department.isEmpty ||
+        academicLevel == null ||
+        academicLevel.isEmpty) {
+      return;
+    }
+
+    final teamId = departmentLevelTeamId(
+      college: college,
+      department: department,
+      academicLevel: academicLevel,
+    );
+    final teamName = departmentLevelTeamName(
+      department: department,
+      academicLevel: academicLevel,
+    );
+
+    final existingTeam = await _teamRepository.getTeamById(teamId);
+    if (existingTeam == null) {
+      await _teamRepository.addTeam(
+        TeamModel(
+          id: teamId,
+          name: teamName,
+          college: college,
+          players: [user.id],
+        ),
+      );
+      return;
+    }
+
+    if (!existingTeam.players.contains(user.id)) {
+      await _teamRepository.addPlayer(teamId, user.id);
     }
   }
 

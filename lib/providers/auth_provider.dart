@@ -78,6 +78,15 @@ class AuthProvider extends ChangeNotifier {
         email: email,
         password: password,
       );
+      if (!credential.user!.emailVerified) {
+        _auth.setLanguageCode("ar");
+        await credential.user!.sendEmailVerification();
+        await _auth.signOut();
+        throw StateError(
+          'الرجاء تأكيد البريد الإلكتروني لتسجيل الدخول. لقد أرسلنا رابط تأكيد جديد إلى بريدك.',
+        );
+      }
+
       final hasProfile = await _fetchAndSetUser(credential.user!.uid);
       if (!hasProfile) {
         await _auth.signOut();
@@ -133,9 +142,15 @@ class AuthProvider extends ChangeNotifier {
       // 3. Save to Firestore
       await _firestore.collection('users').doc(uid).set(newUser.toMap());
 
-      // authStateChanges can fire before the Firestore document exists, so set
-      // the signed-in user here after the profile has definitely been saved.
-      _currentUser = newUser;
+      // Send Email Verification
+      if (createdUser != null) {
+        _auth.setLanguageCode("ar");
+        await createdUser.sendEmailVerification();
+      }
+
+      // Sign out immediately so they must verify
+      await _auth.signOut();
+      _currentUser = null;
       _isLoading = false;
       _isAuthReady = true;
       notifyListeners();

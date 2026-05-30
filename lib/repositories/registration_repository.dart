@@ -82,6 +82,20 @@ class RegistrationRepository {
     await _firestore.collection(_collection).doc(id).update({'status': status});
   }
 
+  Future<List<RegistrationModel>> getApprovedRegistrationsByCompetition(
+    String competitionId,
+  ) async {
+    final snapshot = await _firestore
+        .collection(_collection)
+        .where('competition_id', isEqualTo: competitionId)
+        .get();
+
+    return snapshot.docs
+        .map((doc) => RegistrationModel.fromFirestore(doc))
+        .where((registration) => registration.status == 'approved')
+        .toList();
+  }
+
   Stream<List<RegistrationModel>> getRegistrationsByUser(String userId) {
     return _firestore
         .collection(_collection)

@@ -171,6 +171,23 @@ class AppNotificationRepository {
     );
   }
 
+  Future<void> sendToCollegeStudents({
+    required String title,
+    required String body,
+    required String type,
+    required String college,
+    String? relatedId,
+  }) async {
+    final students = await _userRepository.getStudentsByCollege(college).first;
+    await sendToUsers(
+      recipientIds: students.map((student) => student.id),
+      title: title,
+      body: body,
+      type: type,
+      relatedId: relatedId,
+    );
+  }
+
   Future<int> sendAnnouncementToAllStudents({
     required String title,
     required String body,

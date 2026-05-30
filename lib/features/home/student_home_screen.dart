@@ -55,6 +55,17 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
       listen: false,
     ).currentUser;
     if (user == null) return;
+
+    if (competition.college != null &&
+        competition.college!.isNotEmpty &&
+        competition.college != user.college) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('لا يمكنك التسجيل في بطولة تابعة لكلية أخرى.')),
+      );
+      return;
+    }
+
     if (_submittingCompetitionIds.contains(competition.id)) return;
 
     setState(() => _submittingCompetitionIds.add(competition.id));
@@ -104,17 +115,6 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
             onPressed: () => context.push('/winners'),
           ),
           if (user != null) _buildNotificationsAction(user.id),
-          IconButton(
-            tooltip: 'تسجيل الخروج',
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              legacy_provider.Provider.of<AuthProvider>(
-                context,
-                listen: false,
-              ).logout();
-              context.go('/');
-            },
-          ),
         ],
       ),
       body: SafeArea(child: _buildSelectedPage(user)),
@@ -248,9 +248,9 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
             final competitions = allCompetitions
                 .where(
                   (c) =>
-                      c.college == null ||
-                      c.college!.isEmpty ||
-                      c.college == user?.college,
+                      user?.college != null &&
+                      user!.college!.trim().isNotEmpty &&
+                      c.college == user.college,
                 )
                 .toList();
 
@@ -597,9 +597,9 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
             final tournaments = (snapshot.data ?? [])
                 .where(
                   (competition) =>
-                      competition.college == null ||
-                      competition.college!.isEmpty ||
-                      competition.college == user?.college,
+                      user?.college != null &&
+                      user!.college!.trim().isNotEmpty &&
+                      competition.college == user.college,
                 )
                 .toList();
 
@@ -761,6 +761,31 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
           label: 'المستوى الدراسي',
           value: user.academicLevel,
         ),
+        const SizedBox(height: 32),
+        ElevatedButton.icon(
+          onPressed: () {
+            legacy_provider.Provider.of<AuthProvider>(
+              context,
+              listen: false,
+            ).logout();
+            context.go('/');
+          },
+          icon: const Icon(Icons.logout, size: 24),
+          label: const Text(
+            'تسجيل الخروج',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.redAccent,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            elevation: 2,
+          ),
+        ),
+        const SizedBox(height: 24),
       ],
     );
   }

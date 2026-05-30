@@ -1,18 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/team_identity.dart';
 import '../../core/theme.dart';
 import '../../models/competition_model.dart';
 import '../../models/match_model.dart';
+import '../../models/team_model.dart';
+import '../../models/user_model.dart';
 import '../../repositories/app_notification_repository.dart';
 import '../../repositories/competition_repository.dart';
 import '../../repositories/match_repository.dart';
+import '../../repositories/registration_repository.dart';
 import '../../repositories/team_repository.dart';
+import '../../repositories/user_repository.dart';
 import '../../services/fixture_generator_service.dart';
 import '../competitions/tournament_structure_view.dart';
 import '../colleges/domain/entities/college.dart';
 import '../colleges/presentation/providers/college_dropdown_providers.dart';
-import '../../models/team_model.dart';
 
 class CompetitionDetailsScreen extends ConsumerStatefulWidget {
   final CompetitionModel competition;
@@ -28,10 +32,16 @@ class _CompetitionDetailsScreenState
     extends ConsumerState<CompetitionDetailsScreen> {
   final TeamRepository _teamRepository = TeamRepository();
   final MatchRepository _matchRepository = MatchRepository();
+  final RegistrationRepository _registrationRepository =
+      RegistrationRepository();
+  final UserRepository _userRepository = UserRepository();
   final CompetitionRepository _competitionRepository = CompetitionRepository();
   final AppNotificationRepository _notificationRepository =
       AppNotificationRepository();
   final FixtureGeneratorService _fixtureService = FixtureGeneratorService();
+  final Map<String, Future<_MatchTeamPlayers>> _matchPlayersFutures =
+      <String, Future<_MatchTeamPlayers>>{};
+  Future<List<UserModel>>? _approvedCompetitionPlayersFuture;
 
   bool _isGenerating = false;
   String? _championName;
@@ -130,9 +140,15 @@ class _CompetitionDetailsScreenState
               'السادس',
             ];
             final levelName = levelNames[level - 1];
-            final teamName = '${dept.name} المستوى $levelName';
-            final teamId =
-                '${college.name.replaceAll(' ', '_')}_${dept.name.replaceAll(' ', '_')}_${levelName.replaceAll(' ', '_')}';
+            final teamName = departmentLevelTeamName(
+              department: dept.name,
+              academicLevel: levelName,
+            );
+            final teamId = departmentLevelTeamId(
+              college: college.name,
+              department: dept.name,
+              academicLevel: levelName,
+            );
 
             if (existingDbTeamsMap.containsKey(teamId)) {
               candidateTeams.add(existingDbTeamsMap[teamId]!);
@@ -726,6 +742,90 @@ class _CompetitionDetailsScreenState
     }
   }
 
+  Future<_MatchTeamPlayers> _matchTeamPlayers(MatchModel match) {
+    final cacheKey =
+        '${widget.competition.id}_${match.id}_${match.teamAId}_${match.teamBId}';
+
+    return _matchPlayersFutures.putIfAbsent(cacheKey, () async {
+      final approvedPlayers = await _approvedCompetitionPlayers();
+      final teams = await Future.wait<TeamModel?>([
+        match.teamAId.isEmpty
+            ? Future<TeamModel?>.value()
+            : _teamRepository.getTeamById(match.teamAId),
+        match.teamBId.isEmpty
+            ? Future<TeamModel?>.value()
+            : _teamRepository.getTeamById(match.teamBId),
+      ]);
+
+      return _MatchTeamPlayers(
+        teamA: _playersForTeam(
+          teamId: match.teamAId,
+          team: teams[0],
+          approvedPlayers: approvedPlayers,
+        ),
+        teamB: _playersForTeam(
+          teamId: match.teamBId,
+          team: teams[1],
+          approvedPlayers: approvedPlayers,
+        ),
+      );
+    });
+  }
+
+  Future<List<UserModel>> _approvedCompetitionPlayers() {
+    return _approvedCompetitionPlayersFuture ??= () async {
+      final registrations = await _registrationRepository
+          .getApprovedRegistrationsByCompetition(widget.competition.id);
+      final userIds = registrations
+          .map((registration) => registration.userId)
+          .where((userId) => userId.trim().isNotEmpty)
+          .toSet()
+          .toList();
+      final users = await Future.wait(
+        userIds.map((userId) => _userRepository.getUserById(userId)),
+      );
+      final players = users.whereType<UserModel>().toList()
+        ..sort((a, b) => a.name.compareTo(b.name));
+      return players;
+    }();
+  }
+
+  List<UserModel> _playersForTeam({
+    required String teamId,
+    required TeamModel? team,
+    required List<UserModel> approvedPlayers,
+  }) {
+    if (teamId.isEmpty) return const [];
+
+    final teamPlayerIds = team?.players.toSet() ?? <String>{};
+    final players = approvedPlayers.where((user) {
+      return teamPlayerIds.contains(user.id) || _userTeamId(user) == teamId;
+    }).toList()..sort((a, b) => a.name.compareTo(b.name));
+
+    return players;
+  }
+
+  String? _userTeamId(UserModel user) {
+    final college = user.college?.trim();
+    final department = user.department?.trim();
+    final academicLevel = user.academicLevel?.trim();
+
+    if (college == null ||
+        college.isEmpty ||
+        department == null ||
+        department.isEmpty ||
+        academicLevel == null ||
+        academicLevel.isEmpty) {
+      return null;
+    }
+
+    return departmentLevelTeamId(
+      college: college,
+      department: department,
+      academicLevel: academicLevel,
+    );
+  }
+
   List<TeamModel> _buildGroupQualifiers(List<MatchModel> groupMatches) {
     final matchesByGroup = <String, List<MatchModel>>{};
     for (final match in groupMatches) {
@@ -1022,8 +1122,164 @@ class _CompetitionDetailsScreenState
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            _buildMatchPlayers(match),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildMatchPlayers(MatchModel match) {
+    return FutureBuilder<_MatchTeamPlayers>(
+      future: _matchTeamPlayers(match),
+      builder: (context, snapshot) {
+        final players = snapshot.data;
+        final isLoading =
+            snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData;
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _TeamPlayersPanel(
+                teamName: match.teamAName,
+                hasTeam: match.teamAId.isNotEmpty,
+                players: players?.teamA ?? const [],
+                isLoading: isLoading,
+                hasError: snapshot.hasError,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _TeamPlayersPanel(
+                teamName: match.teamBName,
+                hasTeam: match.teamBId.isNotEmpty,
+                players: players?.teamB ?? const [],
+                isLoading: isLoading,
+                hasError: snapshot.hasError,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _MatchTeamPlayers {
+  final List<UserModel> teamA;
+  final List<UserModel> teamB;
+
+  const _MatchTeamPlayers({required this.teamA, required this.teamB});
+}
+
+class _TeamPlayersPanel extends StatelessWidget {
+  final String teamName;
+  final bool hasTeam;
+  final List<UserModel> players;
+  final bool isLoading;
+  final bool hasError;
+
+  const _TeamPlayersPanel({
+    required this.teamName,
+    required this.hasTeam,
+    required this.players,
+    required this.isLoading,
+    required this.hasError,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.14)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.groups_2_outlined,
+                size: 16,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  teamName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (!hasTeam)
+            Text(
+              'لم يتم تحديد الفريق بعد',
+              style: TextStyle(color: Colors.grey[700], fontSize: 12),
+            )
+          else if (isLoading)
+            const SizedBox(
+              height: 24,
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            )
+          else if (hasError)
+            Text(
+              'تعذر تحميل اللاعبين',
+              style: TextStyle(color: colorScheme.error, fontSize: 12),
+            )
+          else if (players.isEmpty)
+            Text(
+              'لا يوجد لاعبون مقبولون لهذه البطولة',
+              style: TextStyle(color: Colors.grey[700], fontSize: 12),
+            )
+          else
+            ...players.map(
+              (player) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.person_outline,
+                      size: 15,
+                      color: colorScheme.primary,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        player.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

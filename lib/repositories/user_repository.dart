@@ -28,4 +28,13 @@ class UserRepository {
         .snapshots()
         .map((snapshot) => snapshot.docs.map((doc) => UserModel.fromFirestore(doc)).toList());
   }
+
+  Stream<List<UserModel>> getStudentsByCollege(String college) {
+    return _firestore
+        .collection(_collection)
+        .where('role', isEqualTo: 'student')
+        .where('college', isEqualTo: college)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => UserModel.fromFirestore(doc)).toList());
+  }
 }
