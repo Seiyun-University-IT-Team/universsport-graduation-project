@@ -6,6 +6,7 @@ class TeamModel {
   final String college;
   final String? captainId;
   final List<String> players;
+  final bool isDeleted;
 
   TeamModel({
     required this.id,
@@ -13,6 +14,7 @@ class TeamModel {
     required this.college,
     this.captainId,
     required this.players,
+    this.isDeleted = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -21,17 +23,23 @@ class TeamModel {
       'college': college,
       'captain_id': captainId,
       'players': players,
+      'is_deleted': isDeleted,
     };
   }
 
   factory TeamModel.fromFirestore(DocumentSnapshot doc) {
     final map = doc.data() as Map<String, dynamic>;
+    final rawPlayers = map['players'];
+
     return TeamModel(
       id: doc.id,
       name: map['name'] ?? '',
       college: map['college'] ?? '',
       captainId: map['captain_id'],
-      players: List<String>.from(map['players'] ?? []),
+      players: rawPlayers is Iterable
+          ? rawPlayers.whereType<String>().toList()
+          : const [],
+      isDeleted: map['is_deleted'] == true,
     );
   }
 }

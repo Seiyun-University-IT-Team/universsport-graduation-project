@@ -1,0 +1,92 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function signedInUser() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          signedInUser().data.role == 'admin';
+    }
+
+    function keepsSameRole() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']);
+    }
+
+    match /users/{userId} {
+      allow create: if isAdmin() ||
+          (isOwner(userId) && request.resource.data.role == 'student');
+      allow read: if isAdmin() || isOwner(userId);
+      allow update: if isAdmin() || (isOwner(userId) && keepsSameRole());
+      allow delete: if isAdmin();
+    }
+
+    match /colleges/{collegeId} {
+      allow read: if true;
+      allow write: if isAdmin();
+
+      match /departments/{departmentId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
+    match /sports/{sportId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /competitions/{competitionId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /teams/{teamId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /matches/{matchId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /registrations/{registrationId} {
+      allow create: if isSignedIn() &&
+          request.resource.data.user_id == request.auth.uid &&
+          request.resource.data.status == 'pending';
+      allow read: if isAdmin() ||
+          (isSignedIn() && resource.data.user_id == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isAdmin() ||
+          (isSignedIn() && resource.data.recipient_id == request.auth.uid);
+      allow create: if isAdmin();
+      allow update: if isAdmin() ||
+          (isSignedIn() &&
+          resource.data.recipient_id == request.auth.uid &&
+          request.resource.data.recipient_id == resource.data.recipient_id &&
+          request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['is_read', 'read_at']) &&
+          request.resource.data.is_read == true);
+      allow delete: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

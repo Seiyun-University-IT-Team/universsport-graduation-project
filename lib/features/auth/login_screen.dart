@@ -15,6 +15,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  bool _isPasswordVisible = false;
 
   @override
   Widget build(BuildContext context) {
@@ -46,20 +47,34 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextFormField(
                   controller: _emailController,
                   decoration: const InputDecoration(
-                    labelText: 'البريد الإلكتروني / اسم المستخدم',
+                    labelText: 'البريد الإلكتروني  ',
                     prefixIcon: Icon(Icons.person),
                   ),
-                  validator: (value) => value!.isEmpty ? 'مطلوب' : null,
+                  validator: (value) =>
+                      value!.isEmpty ? 'يرجى ادخال البريد الالكتروني' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _passwordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(
+                  obscureText: !_isPasswordVisible,
+                  decoration: InputDecoration(
                     labelText: 'كلمة المرور',
-                    prefixIcon: Icon(Icons.lock),
+                    prefixIcon: const Icon(Icons.lock),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _isPasswordVisible
+                            ? Icons.visibility
+                            : Icons.visibility_off,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _isPasswordVisible = !_isPasswordVisible;
+                        });
+                      },
+                    ),
                   ),
-                  validator: (value) => value!.isEmpty ? 'مطلوب' : null,
+                  validator: (value) =>
+                      value!.isEmpty ? 'يرجى ادخال كلمة المرور' : null,
                 ),
                 const SizedBox(height: 32),
                 authProvider.isLoading
@@ -74,7 +89,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               );
                               if (!context.mounted) return;
                               if (authProvider.isAuthenticated) {
-                                if (authProvider.currentUser!.isAdmin) {
+                                if (authProvider.currentUser!.isAdmin ||
+                                    authProvider.currentUser!.isSupervisor) {
                                   context.go('/admin_dashboard');
                                 } else {
                                   context.go('/student_home');
@@ -83,7 +99,11 @@ class _LoginScreenState extends State<LoginScreen> {
                             } catch (e) {
                               if (!context.mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('البريد الإلكتروني أو كلمة المرور غير صحيحة')),
+                                const SnackBar(
+                                  content: Text(
+                                    'البريد الإلكتروني أو كلمة المرور غير صحيحة',
+                                  ),
+                                ),
                               );
                             }
                           }
@@ -97,7 +117,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   },
                   child: const Text(
                     'إنشاء حساب جديد',
-                    style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: AppTheme.primaryColor,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],

@@ -29,13 +29,19 @@ class RegistrationModel {
 
   factory RegistrationModel.fromFirestore(DocumentSnapshot doc) {
     final map = doc.data() as Map<String, dynamic>;
+    final rawRegistrationDate = map['registration_date'];
+
     return RegistrationModel(
       id: doc.id,
       userId: map['user_id'] ?? '',
       sportId: map['sport_id'] ?? '',
       competitionId: map['competition_id'],
       status: map['status'] ?? 'pending',
-      registrationDate: (map['registration_date'] as Timestamp).toDate(),
+      registrationDate: rawRegistrationDate is Timestamp
+          ? rawRegistrationDate.toDate()
+          : rawRegistrationDate is DateTime
+          ? rawRegistrationDate
+          : DateTime.now(),
     );
   }
 }

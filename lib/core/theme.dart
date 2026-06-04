@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
+  static const String fontFamily = 'ThmanyahSans';
+
   static const Color primaryColor = Color(0xFF00529B); // University Blue
   static const Color secondaryColor = Colors.white;
   static const Color backgroundColor = Color(0xFFF5F7FA);
@@ -9,8 +10,15 @@ class AppTheme {
   static const Color textSecondaryColor = Color(0xFF757575);
 
   static ThemeData get lightTheme {
+    final baseTextTheme = ThemeData(useMaterial3: true).textTheme.apply(
+      fontFamily: fontFamily,
+      bodyColor: textPrimaryColor,
+      displayColor: textPrimaryColor,
+    );
+
     return ThemeData(
       useMaterial3: true,
+      fontFamily: fontFamily,
       colorScheme: ColorScheme.fromSeed(
         seedColor: primaryColor,
         primary: primaryColor,
@@ -18,24 +26,27 @@ class AppTheme {
         surface: backgroundColor,
       ),
       scaffoldBackgroundColor: backgroundColor,
-      textTheme: GoogleFonts.cairoTextTheme().copyWith(
-        displayLarge: GoogleFonts.cairo(
+      textTheme: baseTextTheme.copyWith(
+        displayLarge: baseTextTheme.displayLarge?.copyWith(
           color: textPrimaryColor,
           fontWeight: FontWeight.bold,
         ),
-        titleLarge: GoogleFonts.cairo(
+        titleLarge: baseTextTheme.titleLarge?.copyWith(
           color: textPrimaryColor,
           fontWeight: FontWeight.bold,
         ),
-        bodyLarge: GoogleFonts.cairo(color: textPrimaryColor),
-        bodyMedium: GoogleFonts.cairo(color: textSecondaryColor),
+        bodyLarge: baseTextTheme.bodyLarge?.copyWith(color: textPrimaryColor),
+        bodyMedium: baseTextTheme.bodyMedium?.copyWith(
+          color: textSecondaryColor,
+        ),
       ),
-      appBarTheme: AppBarTheme(
+      appBarTheme: const AppBarTheme(
         backgroundColor: primaryColor,
         foregroundColor: secondaryColor,
         elevation: 0,
         centerTitle: true,
-        titleTextStyle: GoogleFonts.cairo(
+        titleTextStyle: TextStyle(
+          fontFamily: fontFamily,
           color: secondaryColor,
           fontSize: 20,
           fontWeight: FontWeight.bold,
@@ -49,7 +60,8 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          textStyle: GoogleFonts.cairo(
+          textStyle: const TextStyle(
+            fontFamily: fontFamily,
             fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
