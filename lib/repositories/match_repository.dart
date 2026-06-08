@@ -60,7 +60,7 @@ class MatchRepository {
               .map((doc) => MatchModel.fromFirestore(doc))
               .toList();
           matches.sort((a, b) => a.matchTime.compareTo(b.matchTime));
-          return matches.take(10).toList();
+          return matches;
         });
   }
 
@@ -74,7 +74,7 @@ class MatchRepository {
               .map((doc) => MatchModel.fromFirestore(doc))
               .toList();
           matches.sort((a, b) => b.matchTime.compareTo(a.matchTime));
-          return matches.take(10).toList();
+          return matches;
         });
   }
 }

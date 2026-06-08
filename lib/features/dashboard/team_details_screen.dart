@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:provider/provider.dart' as legacy_provider;
 
 import '../../core/theme.dart';
 import '../../models/team_model.dart';
 import '../../models/user_model.dart';
+import '../../providers/auth_provider.dart';
 import '../../repositories/team_repository.dart';
 import '../../repositories/user_repository.dart';
 import '../colleges/domain/entities/college.dart';
@@ -37,13 +39,36 @@ class _TeamDetailsScreenState extends ConsumerState<TeamDetailsScreen> {
     return trimmedValue;
   }
 
-  Future<void> _addPlayer() async {
+  bool _canManageTeam(TeamModel team) {
+    final user = legacy_provider.Provider.of<AuthProvider>(
+      context,
+      listen: false,
+    ).currentUser;
+    return user?.isSupervisor == true &&
+        user?.college?.trim() == team.college.trim();
+  }
+
+  Future<void> _addPlayer(TeamModel team) async {
     final studentId = _selectedStudentId;
     if (studentId == null) return;
+    if (!_canManageTeam(team)) return;
 
     setState(() => _isSaving = true);
     try {
-      await _teamRepository.addPlayer(widget.team.id, studentId);
+      final existingTeam = await _teamRepository.getTeamById(team.id);
+      if (existingTeam == null) {
+        await _teamRepository.addTeam(
+          TeamModel(
+            id: team.id,
+            name: team.name,
+            college: team.college,
+            captainId: team.captainId,
+            players: [studentId],
+          ),
+        );
+      } else if (!existingTeam.players.contains(studentId)) {
+        await _teamRepository.addPlayer(team.id, studentId);
+      }
       if (!mounted) return;
       setState(() => _selectedStudentId = null);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -60,6 +85,8 @@ class _TeamDetailsScreenState extends ConsumerState<TeamDetailsScreen> {
   }
 
   Future<void> _removePlayer(TeamModel team, String userId) async {
+    if (!_canManageTeam(team)) return;
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -99,6 +126,8 @@ class _TeamDetailsScreenState extends ConsumerState<TeamDetailsScreen> {
   }
 
   Future<void> _setCaptain(TeamModel team, String userId) async {
+    if (!_canManageTeam(team)) return;
+
     try {
       await _teamRepository.setCaptain(team.id, userId);
       if (!mounted) return;
@@ -119,12 +148,18 @@ class _TeamDetailsScreenState extends ConsumerState<TeamDetailsScreen> {
     final colleges =
         collegesAsync.whenOrNull(data: (colleges) => colleges) ??
         const <College>[];
+    final currentUser = legacy_provider.Provider.of<AuthProvider>(
+      context,
+    ).currentUser;
 
     return StreamBuilder<TeamModel?>(
       stream: _teamRepository.watchTeam(widget.team.id),
       builder: (context, teamSnapshot) {
         final team = teamSnapshot.data ?? widget.team;
         final collegeName = _collegeDisplayName(team.college, colleges);
+        final canManagePlayers =
+            currentUser?.isSupervisor == true &&
+            currentUser?.college?.trim() == team.college.trim();
 
         return Scaffold(
           appBar: AppBar(title: Text(team.name)),
@@ -134,10 +169,6 @@ class _TeamDetailsScreenState extends ConsumerState<TeamDetailsScreen> {
               if (teamSnapshot.connectionState == ConnectionState.waiting ||
                   studentsSnapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
-              }
-
-              if (teamSnapshot.data == null && !teamSnapshot.hasData) {
-                return const Center(child: Text('الفريق غير موجود'));
               }
 
               if (studentsSnapshot.hasError) {
@@ -153,7 +184,11 @@ class _TeamDetailsScreenState extends ConsumerState<TeamDetailsScreen> {
                   .whereType<UserModel>()
                   .toList();
               final availableStudents = students
-                  .where((student) => !team.players.contains(student.id))
+                  .where(
+                    (student) =>
+                        student.college?.trim() == team.college.trim() &&
+                        !team.players.contains(student.id),
+                  )
                   .toList();
 
               return ListView(
@@ -165,69 +200,85 @@ class _TeamDetailsScreenState extends ConsumerState<TeamDetailsScreen> {
                     captain: studentsById[team.captainId],
                   ),
                   const SizedBox(height: 16),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'إضافة لاعب',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                  if (canManagePlayers) ...[
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'إضافة لاعب',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          DropdownButtonFormField<String>(
-                            initialValue:
-                                availableStudents.any(
-                                  (student) => student.id == _selectedStudentId,
-                                )
-                                ? _selectedStudentId
-                                : null,
-                            decoration: const InputDecoration(
-                              labelText: 'اختر طالباً',
-                              prefixIcon: Icon(Icons.person_add),
-                            ),
-                            items: availableStudents
-                                .map(
-                                  (student) => DropdownMenuItem(
-                                    value: student.id,
-                                    child: Text(student.name),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: _isSaving
-                                ? null
-                                : (value) {
-                                    setState(() => _selectedStudentId = value);
-                                  },
-                          ),
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              onPressed: _selectedStudentId == null || _isSaving
+                            const SizedBox(height: 12),
+                            DropdownButtonFormField<String>(
+                              initialValue:
+                                  availableStudents.any(
+                                    (student) =>
+                                        student.id == _selectedStudentId,
+                                  )
+                                  ? _selectedStudentId
+                                  : null,
+                              decoration: const InputDecoration(
+                                labelText: 'اختر طالباً',
+                                prefixIcon: Icon(Icons.person_add),
+                              ),
+                              items: availableStudents
+                                  .map(
+                                    (student) => DropdownMenuItem(
+                                      value: student.id,
+                                      child: Text(student.name),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: _isSaving
                                   ? null
-                                  : _addPlayer,
-                              icon: _isSaving
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(Icons.add),
-                              label: const Text('إضافة إلى الفريق'),
+                                  : (value) {
+                                      setState(
+                                        () => _selectedStudentId = value,
+                                      );
+                                    },
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed:
+                                    _selectedStudentId == null || _isSaving
+                                    ? null
+                                    : () => _addPlayer(team),
+                                icon: _isSaving
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(Icons.add),
+                                label: const Text('إضافة إلى الفريق'),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
+                  ] else ...[
+                    const Card(
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Text(
+                          'إضافة اللاعبين وتعديلهم متاحة لمشرف الكلية فقط.',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   const Text(
                     'لاعبو الفريق',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -262,27 +313,29 @@ class _TeamDetailsScreenState extends ConsumerState<TeamDetailsScreen> {
                               if (player.college != null) player.college!,
                             ].join(' | '),
                           ),
-                          trailing: PopupMenuButton<String>(
-                            onSelected: (value) {
-                              if (value == 'captain') {
-                                _setCaptain(team, player.id);
-                              }
-                              if (value == 'remove') {
-                                _removePlayer(team, player.id);
-                              }
-                            },
-                            itemBuilder: (context) => [
-                              PopupMenuItem(
-                                value: 'captain',
-                                enabled: team.captainId != player.id,
-                                child: const Text('تعيين كقائد'),
-                              ),
-                              const PopupMenuItem(
-                                value: 'remove',
-                                child: Text('إزالة من الفريق'),
-                              ),
-                            ],
-                          ),
+                          trailing: canManagePlayers
+                              ? PopupMenuButton<String>(
+                                  onSelected: (value) {
+                                    if (value == 'captain') {
+                                      _setCaptain(team, player.id);
+                                    }
+                                    if (value == 'remove') {
+                                      _removePlayer(team, player.id);
+                                    }
+                                  },
+                                  itemBuilder: (context) => [
+                                    PopupMenuItem(
+                                      value: 'captain',
+                                      enabled: team.captainId != player.id,
+                                      child: const Text('تعيين كقائد'),
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'remove',
+                                      child: Text('إزالة من الفريق'),
+                                    ),
+                                  ],
+                                )
+                              : null,
                           selected: team.captainId == player.id,
                           selectedTileColor: AppTheme.primaryColor.withValues(
                             alpha: 0.08,
