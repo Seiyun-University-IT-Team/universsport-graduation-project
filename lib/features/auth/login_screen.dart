@@ -85,7 +85,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             try {
                               await authProvider.login(
                                 _emailController.text.trim(),
-                                _passwordController.text.trim(),
+                                _passwordController.text,
                               );
                               if (!context.mounted) return;
                               if (authProvider.isAuthenticated) {

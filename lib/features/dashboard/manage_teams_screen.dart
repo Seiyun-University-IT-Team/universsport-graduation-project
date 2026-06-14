@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/team_identity.dart';
 import '../../core/theme.dart';
 import '../../models/team_model.dart';
 import '../../repositories/team_repository.dart';
 import '../colleges/domain/entities/college.dart';
+import '../colleges/domain/entities/department.dart';
 import '../colleges/presentation/providers/college_dropdown_providers.dart';
 
 import 'package:provider/provider.dart' as legacy_provider;
@@ -75,187 +77,193 @@ class _ManageTeamsScreenState extends ConsumerState<ManageTeamsScreen> {
     return trimmedValue;
   }
 
+  TeamModel _collegeTeamFor(College college) {
+    return TeamModel(
+      id: collegeTeamId(college.name),
+      name: college.name,
+      college: college.name,
+      players: const [],
+    );
+  }
+
+  List<TeamModel> _departmentLevelTeamsFor(
+    College college,
+    List<Department> departments,
+  ) {
+    final maxLevel = college.name.contains('الطب') ? 6 : 4;
+    final teams = <TeamModel>[];
+
+    for (final department in departments) {
+      for (var level = 1; level <= maxLevel; level++) {
+        final academicLevel = level.toString();
+        teams.add(
+          TeamModel(
+            id: departmentLevelTeamId(
+              college: college.name,
+              department: department.name,
+              academicLevel: academicLevel,
+            ),
+            name: departmentLevelTeamName(
+              department: department.name,
+              academicLevel: academicLevel,
+            ),
+            college: college.name,
+            players: const [],
+          ),
+        );
+      }
+    }
+
+    return teams;
+  }
+
+  Widget _buildTeamsList({
+    required List<TeamModel> generatedTeams,
+    required List<College> colleges,
+  }) {
+    return StreamBuilder<List<TeamModel>>(
+      stream: _teamRepository.getAllTeams(includeDeleted: true),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final dbTeams = snapshot.data ?? [];
+        final deletedTeamIds = dbTeams
+            .where((team) => team.isDeleted)
+            .map((team) => team.id)
+            .toSet();
+        final dbTeamsMap = {
+          for (final team in dbTeams.where((team) => !team.isDeleted))
+            team.id: team,
+        };
+        final visibleTeams = generatedTeams
+            .where((team) => !deletedTeamIds.contains(team.id))
+            .toList();
+
+        if (visibleTeams.isEmpty) {
+          return const Center(child: Text('لا توجد فرق حالياً.'));
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: visibleTeams.length,
+          itemBuilder: (context, index) {
+            var team = visibleTeams[index];
+            if (dbTeamsMap.containsKey(team.id)) {
+              team = dbTeamsMap[team.id]!;
+            }
+
+            final isDeleting = _deletingTeamIds.contains(team.id);
+            final collegeName = _collegeDisplayName(team.college, colleges);
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: AppTheme.primaryColor,
+                  child: Icon(Icons.shield, color: Colors.white),
+                ),
+                title: Text(
+                  team.name,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Text(
+                  'الكلية: $collegeName | اللاعبين: ${team.players.length}',
+                ),
+                trailing: isDeleting
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : IconButton(
+                        tooltip: 'حذف الفريق',
+                        onPressed: () => _deleteTeam(team),
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          color: Colors.red,
+                        ),
+                      ),
+                onTap: isDeleting
+                    ? null
+                    : () {
+                        context.push('/team_details', extra: team);
+                      },
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final collegesAsync = ref.watch(collegesProvider);
-    final colleges =
-        collegesAsync.whenOrNull(data: (colleges) => colleges) ??
-        const <College>[];
 
     final authProvider = legacy_provider.Provider.of<AuthProvider>(
       context,
-      listen: false,
+      listen: true,
     );
     final user = authProvider.currentUser;
     final isSupervisor = user?.isSupervisor == true;
-    final targetCollegeName = isSupervisor ? user?.college : null;
-
-    final College? targetCollege = colleges.cast<College?>().firstWhere(
-      (c) => c?.name == targetCollegeName,
-      orElse: () =>
-          colleges.isNotEmpty && !isSupervisor ? colleges.first : null,
-    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('إدارة الفِرق')),
-      body: targetCollege == null
-          ? const Center(child: Text('لا توجد كلية متاحة.'))
-          : Consumer(
-              builder: (context, ref, child) {
-                final departmentsAsync = ref.watch(
-                  departmentsProvider(targetCollege.id),
-                );
+      body: collegesAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => const Center(child: Text('تعذر تحميل الكليات')),
+        data: (colleges) {
+          if (colleges.isEmpty) {
+            return const Center(child: Text('لا توجد كلية متاحة.'));
+          }
 
-                return departmentsAsync.when(
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (err, stack) =>
-                      const Center(child: Text('تعذر تحميل الأقسام')),
-                  data: (departments) {
-                    if (departments.isEmpty) {
-                      return const Center(
-                        child: Text('لا توجد أقسام في هذه الكلية.'),
-                      );
-                    }
+          if (!isSupervisor) {
+            return _buildTeamsList(
+              generatedTeams: colleges.map(_collegeTeamFor).toList(),
+              colleges: colleges,
+            );
+          }
 
-                    // For each department, generate teams
-                    final maxLevel = targetCollege.name.contains('الطب')
-                        ? 6
-                        : 4;
-                    final dynamicTeams = <TeamModel>[];
+          final targetCollegeName = user?.college?.trim();
+          final targetCollege = colleges.cast<College?>().firstWhere(
+            (college) => college?.name.trim() == targetCollegeName,
+            orElse: () => null,
+          );
 
-                    for (final dept in departments) {
-                      for (int level = 1; level <= maxLevel; level++) {
-                        final levelNames = [
-                          'الأول',
-                          'الثاني',
-                          'الثالث',
-                          'الرابع',
-                          'الخامس',
-                          'السادس',
-                        ];
-                        final levelName = levelNames[level - 1];
-                        final teamName = '${dept.name} المستوى $levelName';
-                        final safeCollege = targetCollege.name.replaceAll(
-                          ' ',
-                          '_',
-                        );
-                        final safeDept = dept.name.replaceAll(' ', '_');
-                        final safeLevel = levelName.replaceAll(' ', '_');
-                        final teamId = '${safeCollege}_${safeDept}_$safeLevel';
+          if (targetCollege == null) {
+            return const Center(
+              child: Text('لا توجد كلية مرتبطة بهذا الحساب.'),
+            );
+          }
 
-                        dynamicTeams.add(
-                          TeamModel(
-                            id: teamId,
-                            name: teamName,
-                            college: targetCollege.name,
-                            players: const [],
-                          ),
-                        );
-                      }
-                    }
+          return Consumer(
+            builder: (context, ref, child) {
+              final departmentsAsync = ref.watch(
+                departmentsProvider(targetCollege.id),
+              );
 
-                    return StreamBuilder<List<TeamModel>>(
-                      stream: _teamRepository.getAllTeams(includeDeleted: true),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                                ConnectionState.waiting &&
-                            !snapshot.hasData) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
+              return departmentsAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (err, stack) =>
+                    const Center(child: Text('تعذر تحميل الأقسام')),
+                data: (departments) {
+                  final generatedTeams = [
+                    _collegeTeamFor(targetCollege),
+                    ..._departmentLevelTeamsFor(targetCollege, departments),
+                  ];
 
-                        final dbTeams = snapshot.data ?? [];
-                        final deletedTeamIds = dbTeams
-                            .where((team) => team.isDeleted)
-                            .map((team) => team.id)
-                            .toSet();
-                        final dbTeamsMap = {
-                          for (final team in dbTeams.where(
-                            (team) => !team.isDeleted,
-                          ))
-                            team.id: team,
-                        };
-                        final visibleTeams = dynamicTeams
-                            .where((team) => !deletedTeamIds.contains(team.id))
-                            .toList();
-
-                        if (visibleTeams.isEmpty) {
-                          return const Center(
-                            child: Text('لا توجد فرق حالياً.'),
-                          );
-                        }
-
-                        return ListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: visibleTeams.length,
-                          itemBuilder: (context, index) {
-                            var team = visibleTeams[index];
-                            if (dbTeamsMap.containsKey(team.id)) {
-                              team = dbTeamsMap[team.id]!;
-                            }
-
-                            final isDeleting = _deletingTeamIds.contains(
-                              team.id,
-                            );
-                            final collegeName = _collegeDisplayName(
-                              team.college,
-                              colleges,
-                            );
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              child: ListTile(
-                                leading: const CircleAvatar(
-                                  backgroundColor: AppTheme.primaryColor,
-                                  child: Icon(
-                                    Icons.shield,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                title: Text(
-                                  team.name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                subtitle: Text(
-                                  'الكلية: $collegeName | اللاعبين: ${team.players.length}',
-                                ),
-                                trailing: isDeleting
-                                    ? const SizedBox(
-                                        width: 24,
-                                        height: 24,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : IconButton(
-                                        tooltip: 'حذف الفريق',
-                                        onPressed: () => _deleteTeam(team),
-                                        icon: const Icon(
-                                          Icons.delete_outline,
-                                          color: Colors.red,
-                                        ),
-                                      ),
-                                onTap: isDeleting
-                                    ? null
-                                    : () {
-                                        context.push(
-                                          '/team_details',
-                                          extra: team,
-                                        );
-                                      },
-                              ),
-                            );
-                          },
-                        );
-                      },
-                    );
-                  },
-                );
-              },
-            ),
+                  return _buildTeamsList(
+                    generatedTeams: generatedTeams,
+                    colleges: colleges,
+                  );
+                },
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }

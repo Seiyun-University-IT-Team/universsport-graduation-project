@@ -167,17 +167,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   if (password.isEmpty) {
                     return 'مطلوب';
                   }
-                  if (password.length < 8) {
-                    return 'يجب أن تتكون من 8 أحرف على الأقل';
-                  }
-                  if (!RegExp(r'[A-Z]').hasMatch(password)) {
-                    return 'يجب أن تحتوي على حرف كبير واحد على الأقل';
-                  }
-                  if (!RegExp(r'[0-9]').hasMatch(password)) {
-                    return 'يجب أن تحتوي على رقم واحد على الأقل';
-                  }
-                  if (!RegExp(r'[!@#\$&*~%]').hasMatch(password)) {
-                    return 'يجب أن تحتوي على رمز خاص واحد على الأقل (!@#\$&*~%)';
+                  if (password.length < 6) {
+                    return 'كلمة المرور يجب أن تكون 6 أحرف على الأقل';
                   }
                   return null;
                 },
@@ -212,14 +203,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             password: _passwordController.text,
                           );
                           if (!context.mounted) return;
-                          
+
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('تم إنشاء الحساب بنجاح. الرجاء التحقق من بريدك الإلكتروني لتأكيد الحساب قبل تسجيل الدخول.'),
+                              content: Text(
+                                'تم إنشاء الحساب بنجاح. الرجاء التحقق من بريدك الإلكتروني لتأكيد الحساب قبل تسجيل الدخول.',
+                              ),
                               duration: Duration(seconds: 5),
                             ),
                           );
-                          
+
                           // Return to login screen since they need to verify email
                           context.pop();
                         } catch (e) {

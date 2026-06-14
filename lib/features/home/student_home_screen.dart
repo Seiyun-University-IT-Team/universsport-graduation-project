@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart' as legacy_provider;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/team_identity.dart';
 import '../../core/theme.dart';
 import '../../models/competition_model.dart';
 import '../../models/match_model.dart';
@@ -32,6 +33,7 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
 
   int _selectedIndex = 2;
   String? _selectedCollegeFilter;
+  String? _selectedCompetitionFilterId;
   bool _filtersInitialized = false;
 
   @override
@@ -43,10 +45,24 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
         listen: false,
       ).currentUser;
       if (user != null) {
-        _selectedCollegeFilter = user.college;
+        _selectedCollegeFilter = _cleanFilterValue(user.college);
         _filtersInitialized = true;
       }
     }
+  }
+
+  String? _cleanFilterValue(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    return trimmed;
+  }
+
+  bool _competitionMatchesCollege(
+    CompetitionModel competition,
+    String? selectedCollege,
+  ) {
+    if (selectedCollege == null) return true;
+    return _cleanFilterValue(competition.college) == selectedCollege;
   }
 
   Future<void> _registerForCompetition(CompetitionModel competition) async {
@@ -61,7 +77,9 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
         competition.college != user.college) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('لا يمكنك التسجيل في بطولة تابعة لكلية أخرى.')),
+        const SnackBar(
+          content: Text('لا يمكنك التسجيل في بطولة تابعة لكلية أخرى.'),
+        ),
       );
       return;
     }
@@ -463,49 +481,46 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
       builder: (context, snapshot) {
         final competitions = snapshot.data ?? [];
 
-        // Build sorted college list from competitions
         final collegeSet = <String>{};
-        for (var c in competitions) {
-          if (c.college != null && c.college!.isNotEmpty) {
-            collegeSet.add(c.college!);
+        for (final competition in competitions) {
+          final college = _cleanFilterValue(competition.college);
+          if (college != null) {
+            collegeSet.add(college);
           }
         }
         final colleges = collegeSet.toList()..sort();
+        final selectedCollege = colleges.contains(_selectedCollegeFilter)
+            ? _selectedCollegeFilter
+            : null;
 
-        // Filter competitions by selected college
-        final filteredCompetitions = competitions.where((c) {
-          if (_selectedCollegeFilter == null) return true; // الكل
-          return c.college == _selectedCollegeFilter;
-        }).toList();
+        final collegeCompetitions = competitions
+            .where(
+              (competition) =>
+                  _competitionMatchesCollege(competition, selectedCollege),
+            )
+            .toList();
+        final selectedCompetitionId =
+            collegeCompetitions.any(
+              (competition) => competition.id == _selectedCompetitionFilterId,
+            )
+            ? _selectedCompetitionFilterId
+            : null;
+        final filteredCompetitions = selectedCompetitionId == null
+            ? collegeCompetitions
+            : collegeCompetitions
+                  .where(
+                    (competition) => competition.id == selectedCompetitionId,
+                  )
+                  .toList();
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'فلترة حسب الكلية',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            // College filter only
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _FilterChip(
-                    label: 'الكل',
-                    selected: _selectedCollegeFilter == null,
-                    onTap: () => setState(() => _selectedCollegeFilter = null),
-                  ),
-                  ...colleges.map(
-                    (college) => _FilterChip(
-                      label: college,
-                      selected: _selectedCollegeFilter == college,
-                      onTap: () =>
-                          setState(() => _selectedCollegeFilter = college),
-                    ),
-                  ),
-                ],
-              ),
+            _buildMatchFilters(
+              colleges: colleges,
+              competitions: collegeCompetitions,
+              selectedCollege: selectedCollege,
+              selectedCompetitionId: selectedCompetitionId,
             ),
             const SizedBox(height: 24),
             _sectionTitle(
@@ -523,6 +538,109 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildMatchFilters({
+    required List<String> colleges,
+    required List<CompetitionModel> competitions,
+    required String? selectedCollege,
+    required String? selectedCompetitionId,
+  }) {
+    final collegeItems = <DropdownMenuItem<String?>>[
+      const DropdownMenuItem<String?>(value: null, child: Text('جميع الكليات')),
+      ...colleges.map(
+        (college) => DropdownMenuItem<String?>(
+          value: college,
+          child: Text(college, maxLines: 1, overflow: TextOverflow.ellipsis),
+        ),
+      ),
+    ];
+    final competitionItems = <DropdownMenuItem<String?>>[
+      const DropdownMenuItem<String?>(value: null, child: Text('كل البطولات')),
+      ...competitions.map(
+        (competition) => DropdownMenuItem<String?>(
+          value: competition.id,
+          child: Text(
+            competition.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final collegeDropdown = _buildFilterDropdown(
+          label: 'الكلية',
+          hint: 'جميع الكليات',
+          icon: Icons.school_outlined,
+          value: selectedCollege,
+          items: collegeItems,
+          onChanged: (value) {
+            setState(() {
+              _selectedCollegeFilter = value;
+              _selectedCompetitionFilterId = null;
+            });
+          },
+        );
+        final competitionDropdown = _buildFilterDropdown(
+          label: 'البطولة',
+          hint: 'كل البطولات',
+          icon: Icons.emoji_events_outlined,
+          value: selectedCompetitionId,
+          items: competitionItems,
+          onChanged: (value) {
+            setState(() => _selectedCompetitionFilterId = value);
+          },
+        );
+
+        if (constraints.maxWidth < 520) {
+          return Column(
+            children: [
+              collegeDropdown,
+              const SizedBox(height: 12),
+              competitionDropdown,
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: collegeDropdown),
+            const SizedBox(width: 12),
+            Expanded(child: competitionDropdown),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildFilterDropdown({
+    required String label,
+    required String hint,
+    required IconData icon,
+    required String? value,
+    required List<DropdownMenuItem<String?>> items,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return DropdownButtonFormField<String?>(
+      key: ValueKey<String>('match-filter-$label-${value ?? 'all'}'),
+      initialValue: value,
+      isExpanded: true,
+      hint: Text(hint, maxLines: 1, overflow: TextOverflow.ellipsis),
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
+      ),
+      items: items,
+      onChanged: onChanged,
     );
   }
 
@@ -631,9 +749,8 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => StudentTournamentBracketScreen(
-              competition: competition,
-            ),
+            builder: (_) =>
+                StudentTournamentBracketScreen(competition: competition),
           ),
         ),
         child: Padding(
@@ -759,7 +876,7 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
         _buildProfileInfoCard(
           icon: Icons.timeline_outlined,
           label: 'المستوى الدراسي',
-          value: user.academicLevel,
+          value: _academicLevelDisplayValue(user.academicLevel),
         ),
         const SizedBox(height: 32),
         ElevatedButton.icon(
@@ -813,6 +930,14 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
         ),
       ),
     );
+  }
+
+  String? _academicLevelDisplayValue(String? academicLevel) {
+    if (academicLevel == null || academicLevel.trim().isEmpty) {
+      return null;
+    }
+
+    return 'المستوى ${academicLevelName(academicLevel)}';
   }
 
   Widget _buildMatchCard(MatchModel match, {required bool showResult}) {
@@ -1205,48 +1330,6 @@ class _StatusChip extends StatelessWidget {
           color: color,
           fontWeight: FontWeight.bold,
           fontSize: 12,
-        ),
-      ),
-    );
-  }
-}
-
-/// Chip-style filter button for college filter row.
-class _FilterChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _FilterChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          decoration: BoxDecoration(
-            color: selected ? AppTheme.primaryColor : Colors.grey[100],
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: selected ? AppTheme.primaryColor : Colors.grey[300]!,
-            ),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: selected ? Colors.white : Colors.grey[700],
-              fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-              fontSize: 13,
-            ),
-          ),
         ),
       ),
     );

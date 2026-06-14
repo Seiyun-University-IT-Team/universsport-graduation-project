@@ -80,7 +80,7 @@ class _CompetitionDetailsScreenState
         final existingDbTeamsMap = {for (var t in existingDbTeams) t.id: t};
         candidateTeams = [];
         for (final college in colleges) {
-          final teamId = 'college_${college.name.replaceAll(' ', '_')}';
+          final teamId = collegeTeamId(college.name);
           if (existingDbTeamsMap.containsKey(teamId)) {
             candidateTeams.add(existingDbTeamsMap[teamId]!);
           } else {

@@ -47,6 +47,10 @@ String departmentLevelTeamId({
   ].map(_safeTeamSegment).join('_');
 }
 
+String collegeTeamId(String college) {
+  return ['college', college].map(_safeTeamSegment).join('_');
+}
+
 String _safeTeamSegment(String value) {
   return value.trim().replaceAll(RegExp(r'\s+'), '_');
 }
