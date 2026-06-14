@@ -52,6 +52,7 @@ class _CompetitionDetailsScreenState
     _championName = widget.competition.championName;
   }
 
+
   // ── Step 1: build candidate teams, show selection dialog ──────────────────
   Future<void> _generateFixtures() async {
     setState(() => _isGenerating = true);
@@ -238,14 +239,15 @@ class _CompetitionDetailsScreenState
                       .toList();
 
             return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
               title: const Row(
                 children: [
-                  Icon(Icons.groups, color: AppTheme.primaryColor),
+                  Icon(Icons.groups, color: AppTheme.primaryColor, size: 24),
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'اختر الفرق المشاركة',
-                      style: TextStyle(fontSize: 18),
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
@@ -257,10 +259,11 @@ class _CompetitionDetailsScreenState
                   children: [
                     TextField(
                       controller: searchController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText: 'بحث عن فريق...',
-                        prefixIcon: Icon(Icons.search),
+                        prefixIcon: const Icon(Icons.search),
                         isDense: true,
+                        fillColor: Colors.grey.withValues(alpha: 0.02),
                       ),
                       onChanged: (v) => setDialogState(() {}),
                     ),
@@ -270,9 +273,10 @@ class _CompetitionDetailsScreenState
                       children: [
                         Text(
                           'تم اختيار ${selected.length} فريق',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey.shade600,
                           ),
                         ),
                         Row(
@@ -281,12 +285,12 @@ class _CompetitionDetailsScreenState
                               onPressed: () => setDialogState(
                                 () => selected.addAll(teams.map((t) => t.id)),
                               ),
-                              child: const Text('تحديد الكل'),
+                              child: const Text('تحديد الكل', style: TextStyle(fontSize: 12)),
                             ),
                             TextButton(
                               onPressed: () =>
                                   setDialogState(() => selected.clear()),
-                              child: const Text('إلغاء الكل'),
+                              child: const Text('إلغاء الكل', style: TextStyle(fontSize: 12)),
                             ),
                           ],
                         ),
@@ -294,7 +298,7 @@ class _CompetitionDetailsScreenState
                     ),
                     const Divider(height: 4),
                     ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 360),
+                      constraints: const BoxConstraints(maxHeight: 320),
                       child: ListView.builder(
                         shrinkWrap: true,
                         itemCount: filtered.length,
@@ -307,12 +311,12 @@ class _CompetitionDetailsScreenState
                             activeColor: AppTheme.primaryColor,
                             title: Text(
                               team.name,
-                              style: const TextStyle(fontSize: 14),
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                             ),
                             subtitle: team.college.isNotEmpty
                                 ? Text(
                                     team.college,
-                                    style: const TextStyle(fontSize: 11),
+                                    style: const TextStyle(fontSize: 10),
                                   )
                                 : null,
                             onChanged: (checked) {
@@ -345,11 +349,13 @@ class _CompetitionDetailsScreenState
                           Navigator.pop(dialogContext, result);
                         }
                       : null,
-                  icon: const Icon(Icons.check),
-                  label: Text('إنشاء الجدول (${selected.length})'),
+                  icon: const Icon(Icons.check, size: 18),
+                  label: Text('اعتماد الفرق (${selected.length})'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor,
                     foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
                 ),
               ],
@@ -360,6 +366,7 @@ class _CompetitionDetailsScreenState
     );
   }
 
+  // ── Record Result Dialog ──────────────────────────────────────────────────
   void _showRecordResultDialog(MatchModel match) {
     final scoreAController = TextEditingController(
       text: match.scoreA.toString(),
@@ -373,39 +380,76 @@ class _CompetitionDetailsScreenState
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           title: Text(
-            match.status == 'completed' ? 'تعديل النتيجة' : 'إدخال النتيجة',
+            match.status == 'completed' ? 'تعديل نتيجة المباراة' : 'تسجيل نتيجة المباراة',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            textAlign: TextAlign.center,
           ),
           content: Form(
             key: formKey,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  '${match.teamAName} ضد ${match.teamBName}',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
+                const Divider(),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    // Team A info
+                    Expanded(
+                      child: Text(
+                        match.teamAName,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8.0),
+                      child: Text('ضد', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                    ),
+                    // Team B info
+                    Expanded(
+                      child: Text(
+                        match.teamBName,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
                 Row(
                   children: [
                     Expanded(
                       child: TextFormField(
                         controller: scoreAController,
                         keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
                         decoration: InputDecoration(
-                          labelText: 'نتيجة ${match.teamAName}',
+                          labelText: 'أهداف أ',
+                          hintText: '0',
+                          fillColor: Colors.grey.withValues(alpha: 0.02),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                         validator: _scoreValidator,
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 20),
                     Expanded(
                       child: TextFormField(
                         controller: scoreBController,
                         keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
                         decoration: InputDecoration(
-                          labelText: 'نتيجة ${match.teamBName}',
+                          labelText: 'أهداف ب',
+                          hintText: '0',
+                          fillColor: Colors.grey.withValues(alpha: 0.02),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                         validator: _scoreValidator,
                       ),
@@ -452,7 +496,12 @@ class _CompetitionDetailsScreenState
 
                 if (dialogContext.mounted) Navigator.pop(dialogContext);
               },
-              child: const Text('حفظ'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('حفظ النتيجة'),
             ),
           ],
         );
@@ -510,6 +559,7 @@ class _CompetitionDetailsScreenState
     );
   }
 
+  // ── Edit Schedule Dialog ──────────────────────────────────────────────────
   Future<void> _showEditScheduleDialog(MatchModel match) async {
     var selectedDate = match.matchTime;
     var selectedTime = TimeOfDay.fromDateTime(match.matchTime);
@@ -520,17 +570,24 @@ class _CompetitionDetailsScreenState
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text('تعديل موعد المباراة'),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              title: const Text(
+                'تعديل موعد المباراة',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                textAlign: TextAlign.center,
+              ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  const Divider(),
+                  const SizedBox(height: 10),
                   Text(
                     '${match.teamAName} ضد ${match.teamBName}',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
                   OutlinedButton.icon(
                     onPressed: () async {
                       final picked = await showDatePicker(
@@ -543,10 +600,14 @@ class _CompetitionDetailsScreenState
                         setDialogState(() => selectedDate = picked);
                       }
                     },
-                    icon: const Icon(Icons.calendar_today),
+                    icon: const Icon(Icons.calendar_today, size: 18),
                     label: Text(_formatDate(selectedDate)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   OutlinedButton.icon(
                     onPressed: () async {
                       final picked = await showTimePicker(
@@ -557,8 +618,12 @@ class _CompetitionDetailsScreenState
                         setDialogState(() => selectedTime = picked);
                       }
                     },
-                    icon: const Icon(Icons.schedule),
+                    icon: const Icon(Icons.schedule, size: 18),
                     label: Text(selectedTime.format(context)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
                   ),
                 ],
               ),
@@ -584,6 +649,11 @@ class _CompetitionDetailsScreenState
 
                     if (dialogContext.mounted) Navigator.pop(dialogContext);
                   },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
                   child: const Text('حفظ الموعد'),
                 ),
               ],
@@ -594,6 +664,7 @@ class _CompetitionDetailsScreenState
     );
   }
 
+  // ── Champion Dialog ───────────────────────────────────────────────────────
   Future<void> _showChampionDialog(List<MatchModel> matches) async {
     final candidates = _buildChampionCandidates(matches);
     if (candidates.isEmpty) {
@@ -611,21 +682,36 @@ class _CompetitionDetailsScreenState
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text('اعتماد بطل المسابقة'),
-              content: DropdownButtonFormField<String>(
-                initialValue: selectedId,
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.workspace_premium),
-                ),
-                items: candidates.map((candidate) {
-                  return DropdownMenuItem(
-                    value: candidate.id,
-                    child: Text(candidate.label),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) setDialogState(() => selectedId = value);
-                },
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              title: const Text(
+                'اعتماد بطل البطولة',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                textAlign: TextAlign.center,
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Divider(),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedId,
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.workspace_premium),
+                      fillColor: Colors.grey.withValues(alpha: 0.02),
+                    ),
+                    items: candidates.map((candidate) {
+                      return DropdownMenuItem(
+                        value: candidate.id,
+                        child: Text(candidate.label),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setDialogState(() => selectedId = value);
+                      }
+                    },
+                  ),
+                ],
               ),
               actions: [
                 TextButton(
@@ -646,7 +732,12 @@ class _CompetitionDetailsScreenState
                     setState(() => _championName = winner.name);
                     if (dialogContext.mounted) Navigator.pop(dialogContext);
                   },
-                  child: const Text('اعتماد'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.amber[700],
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('اعتماد البطل'),
                 ),
               ],
             );
@@ -658,7 +749,7 @@ class _CompetitionDetailsScreenState
 
   String? _scoreValidator(String? value) {
     final score = int.tryParse(value?.trim() ?? '');
-    if (score == null) return 'رقم مطلوب';
+    if (score == null) return 'مطلوب';
     if (score < 0) return 'غير صالح';
     return null;
   }
@@ -927,91 +1018,362 @@ class _CompetitionDetailsScreenState
 
   @override
   Widget build(BuildContext context) {
+    final isKnockout = widget.competition.tournamentFormat == 'knockout';
+    final formatLabel = isKnockout ? 'خروج المغلوب' : 'نظام مختلط';
+
     return Scaffold(
-      appBar: AppBar(title: Text(widget.competition.name)),
+      appBar: AppBar(
+        title: const Text('تفاصيل البطولة'),
+        elevation: 0,
+      ),
       body: StreamBuilder<List<MatchModel>>(
         stream: _matchRepository.getMatchesByCompetition(widget.competition.id),
         builder: (context, snapshot) {
           final matches = snapshot.data ?? [];
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                TournamentStructureView(
-                  competition: widget.competition,
-                  matches: matches,
-                ),
-                const SizedBox(height: 24),
-                if (_championName != null)
-                  Card(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: Colors.amber[700],
-                        child: const Icon(
-                          Icons.workspace_premium,
-                          color: Colors.white,
-                        ),
-                      ),
-                      title: const Text('بطل البطولة'),
-                      subtitle: Text(
-                        _championName!,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
+                // Top Competition Header Card
+                Container(
+                  width: double.infinity,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AppTheme.primaryColor,
+                        Color(0xFF007AD9),
+                      ],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(32),
+                      bottomRight: Radius.circular(32),
                     ),
                   ),
-                if (_isGenerating)
-                  const Center(child: CircularProgressIndicator())
-                else
-                  Row(
+                  padding: const EdgeInsets.only(bottom: 28, top: 12, left: 20, right: 20),
+                  child: Column(
                     children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: matches.isEmpty ? _generateFixtures : null,
-                          icon: const Icon(Icons.auto_awesome),
-                          label: const Text('إنشاء الهيكل والجدول'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryColor,
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size.fromHeight(48),
+                      // Badges Row
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.sports, color: Colors.white, size: 13),
+                                const SizedBox(width: 4),
+                                Text(
+                                  formatLabel,
+                                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
                           ),
+                          if (widget.competition.college != null && widget.competition.college!.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.account_balance, color: Colors.white, size: 13),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    widget.competition.college!,
+                                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        widget.competition.name,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => _showChampionDialog(matches),
-                          icon: const Icon(Icons.workspace_premium),
-                          label: const Text('اعتماد البطل'),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size.fromHeight(48),
+                      const SizedBox(height: 12),
+                      // Timeline Row
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.calendar_today, color: Colors.white.withValues(alpha: 0.8), size: 13),
+                          const SizedBox(width: 4),
+                          Text(
+                            'من: ${_formatDate(widget.competition.startDate)}',
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 11),
                           ),
-                        ),
+                          const SizedBox(width: 12),
+                          Icon(Icons.event, color: Colors.white.withValues(alpha: 0.8), size: 13),
+                          const SizedBox(width: 4),
+                          Text(
+                            'إلى: ${_formatDate(widget.competition.endDate)}',
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 11),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                const SizedBox(height: 24),
-                const Text(
-                  'إدارة المباريات والنتائج',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 12),
-                if (snapshot.connectionState == ConnectionState.waiting)
-                  const Center(child: CircularProgressIndicator())
-                else if (snapshot.hasError)
-                  const Center(child: Text('تعذر تحميل جدول المباريات.'))
-                else if (matches.isEmpty)
-                  const Center(child: Text('لم يتم جدولة أي مباريات بعد.'))
-                else
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: matches.length,
-                    itemBuilder: (context, index) =>
-                        _buildMatchCard(matches[index]),
+                
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Brackets / Tournament Structure View
+                      if (matches.isNotEmpty) ...[
+                        const Text(
+                          'هيكل البطولة والجدول الزمني',
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+                        ),
+                        const SizedBox(height: 10),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.03),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          padding: const EdgeInsets.all(12),
+                          child: TournamentStructureView(
+                            competition: widget.competition,
+                            matches: matches,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+
+                      // Champion Showcase Card (Gold Gradient)
+                      if (_championName != null) ...[
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [
+                                Color(0xFFFFD700), // Gold
+                                Color(0xFFFFA500), // Orange-Gold
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.orange.withValues(alpha: 0.25),
+                                blurRadius: 16,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          padding: const EdgeInsets.all(20),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.25),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.workspace_premium,
+                                  color: Colors.white,
+                                  size: 36,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'بطل المسابقة المعتمد',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _championName!,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(
+                                Icons.emoji_events,
+                                color: Colors.white,
+                                size: 44,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+
+                      // Admin Action Buttons
+                      if (_isGenerating)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16.0),
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      else
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 6,
+                              child: Container(
+                                decoration: matches.isEmpty
+                                    ? BoxDecoration(
+                                        borderRadius: BorderRadius.circular(14),
+                                        gradient: const LinearGradient(
+                                          colors: [AppTheme.primaryColor, Color(0xFF007AD9)],
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: AppTheme.primaryColor.withValues(alpha: 0.2),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 3),
+                                          ),
+                                        ],
+                                      )
+                                    : null,
+                                child: ElevatedButton.icon(
+                                  onPressed: matches.isEmpty ? _generateFixtures : null,
+                                  icon: const Icon(Icons.auto_awesome, size: 18),
+                                  label: const Text('إنشاء الهيكل والجدول', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: matches.isEmpty ? Colors.transparent : Colors.grey.shade300,
+                                    foregroundColor: matches.isEmpty ? Colors.white : Colors.grey.shade600,
+                                    shadowColor: Colors.transparent,
+                                    minimumSize: const Size.fromHeight(48),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 4,
+                              child: OutlinedButton.icon(
+                                onPressed: () => _showChampionDialog(matches),
+                                icon: const Icon(Icons.workspace_premium, size: 18),
+                                label: const Text('اعتماد البطل', style: TextStyle(fontWeight: FontWeight.bold)),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.amber.shade800,
+                                  side: BorderSide(color: Colors.amber.shade700, width: 1.5),
+                                  minimumSize: const Size.fromHeight(48),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      const SizedBox(height: 24),
+
+                      // Matches Header
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'إدارة المباريات والنتائج',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+                          ),
+                          if (matches.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '${matches.length} مباراة',
+                                style: const TextStyle(fontSize: 11, color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Matches List
+                      if (snapshot.connectionState == ConnectionState.waiting)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24.0),
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      else if (snapshot.hasError)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24.0),
+                            child: Text('تعذر تحميل جدول المباريات.', style: TextStyle(color: Colors.red)),
+                          ),
+                        )
+                      else if (matches.isEmpty)
+                        Container(
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.grey.shade100),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(Icons.event_note, size: 40, color: Colors.grey.shade400),
+                              const SizedBox(height: 8),
+                              Text(
+                                'لم يتم جدولة أي مباريات بعد.',
+                                style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'استخدم زر "إنشاء الهيكل والجدول" بالأعلى للبدء.',
+                                style: TextStyle(color: Colors.grey.shade400, fontSize: 11),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: matches.length,
+                          itemBuilder: (context, index) =>
+                              _buildMatchCard(matches[index]),
+                        ),
+                    ],
                   ),
+                ),
               ],
             ),
           );
@@ -1022,148 +1384,284 @@ class _CompetitionDetailsScreenState
 
   Widget _buildMatchCard(MatchModel match) {
     final isCompleted = match.status == 'completed' || match.status == 'bye';
+    final isBye = match.status == 'bye';
     final canRecordResult =
         match.status != 'waiting' &&
         match.teamAId.isNotEmpty &&
         match.teamBId.isNotEmpty;
 
+    // Status Styling details
+    Color statusColor = Colors.grey;
+    String statusText = 'في الانتظار';
+    if (isBye) {
+      statusColor = Colors.blue;
+      statusText = 'باي (تأهل تلقائي)';
+    } else if (match.status == 'completed') {
+      statusColor = Colors.green;
+      statusText = 'مكتملة';
+    } else if (match.status == 'scheduled') {
+      statusColor = Colors.orange;
+      statusText = 'مجدولة';
+    }
+
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 14),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
+            // Top Card Bar (Status & Tools)
             Row(
               children: [
+                // Status Capsule
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    statusText,
+                    style: TextStyle(
+                      color: statusColor,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Text(
+                    _formatDateTime(match.matchTime),
+                    style: TextStyle(
+                      color: Colors.grey.shade700,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (match.stage != null) ...[
+                  Text(
+                    match.stage!,
+                    style: TextStyle(
+                      color: Colors.grey.shade500,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                ],
+                // Actions
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
                     children: [
-                      Text(
-                        _formatDateTime(match.matchTime),
-                        style: TextStyle(
-                          color: Colors.grey[700],
-                          fontWeight: FontWeight.bold,
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        tooltip: 'تعديل الموعد',
+                        onPressed: () => _showEditScheduleDialog(match),
+                        icon: const Icon(Icons.edit_calendar, size: 16, color: AppTheme.primaryColor),
+                      ),
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        tooltip: isCompleted ? 'تعديل النتيجة' : 'إدخال النتيجة',
+                        onPressed: canRecordResult
+                            ? () => _showRecordResultDialog(match)
+                            : null,
+                        icon: Icon(
+                          Icons.scoreboard,
+                          size: 16,
+                          color: canRecordResult ? Colors.teal : Colors.grey.shade400,
                         ),
                       ),
-                      if (match.stage != null)
-                        Text(
-                          match.stage!,
-                          style: TextStyle(color: Colors.grey[600]),
-                        ),
                     ],
                   ),
                 ),
-                IconButton(
-                  tooltip: 'تعديل الموعد',
-                  onPressed: () => _showEditScheduleDialog(match),
-                  icon: const Icon(Icons.edit_calendar),
-                ),
-                IconButton(
-                  tooltip: isCompleted ? 'تعديل النتيجة' : 'إدخال النتيجة',
-                  onPressed: canRecordResult
-                      ? () => _showRecordResultDialog(match)
-                      : null,
-                  icon: const Icon(Icons.scoreboard),
-                ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+            
+            // FIFA-style versus display
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
+                // Team A
                 Expanded(
                   child: Text(
                     match.teamAName,
                     textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
+                      fontSize: 13,
                       color: isCompleted && match.winnerId == match.teamAId
-                          ? Colors.green
-                          : Colors.black,
+                          ? Colors.green.shade700
+                          : AppTheme.textPrimaryColor,
                     ),
                   ),
                 ),
+                
+                // Score or VS Capsule
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
                     color: isCompleted
-                        ? Colors.blue.withValues(alpha: 0.1)
-                        : Colors.red.withValues(alpha: 0.1),
+                        ? AppTheme.primaryColor
+                        : Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(12),
+                    boxShadow: isCompleted
+                        ? [
+                            BoxShadow(
+                              color: AppTheme.primaryColor.withValues(alpha: 0.2),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : null,
                   ),
                   child: Text(
                     isCompleted
                         ? '${match.scoreA} - ${match.scoreB}'
                         : match.status == 'waiting'
-                        ? 'انتظار'
-                        : 'VS',
+                            ? 'انتظار'
+                            : 'VS',
                     style: TextStyle(
-                      color: isCompleted ? Colors.blue : Colors.red,
+                      color: isCompleted ? Colors.white : Colors.grey.shade600,
                       fontWeight: FontWeight.bold,
-                      fontSize: isCompleted ? 18 : 14,
+                      fontSize: isCompleted ? 18 : 12,
                     ),
                   ),
                 ),
+                
+                // Team B
                 Expanded(
                   child: Text(
                     match.teamBName,
                     textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
+                      fontSize: 13,
                       color: isCompleted && match.winnerId == match.teamBId
-                          ? Colors.green
-                          : Colors.black,
+                          ? Colors.green.shade700
+                          : AppTheme.textPrimaryColor,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            _buildMatchPlayers(match),
+            
+            // Collapsible Team Rosters
+            _CollapsiblePlayersPanel(
+              match: match,
+              matchTeamPlayers: _matchTeamPlayers,
+            ),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildMatchPlayers(MatchModel match) {
-    return FutureBuilder<_MatchTeamPlayers>(
-      future: _matchTeamPlayers(match),
-      builder: (context, snapshot) {
-        final players = snapshot.data;
-        final isLoading =
-            snapshot.connectionState == ConnectionState.waiting &&
-            !snapshot.hasData;
+class _CollapsiblePlayersPanel extends StatefulWidget {
+  final MatchModel match;
+  final Future<_MatchTeamPlayers> Function(MatchModel) matchTeamPlayers;
 
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: _TeamPlayersPanel(
-                teamName: match.teamAName,
-                hasTeam: match.teamAId.isNotEmpty,
-                players: players?.teamA ?? const [],
-                isLoading: isLoading,
-                hasError: snapshot.hasError,
-              ),
+  const _CollapsiblePlayersPanel({
+    required this.match,
+    required this.matchTeamPlayers,
+  });
+
+  @override
+  State<_CollapsiblePlayersPanel> createState() => _CollapsiblePlayersPanelState();
+}
+
+class _CollapsiblePlayersPanelState extends State<_CollapsiblePlayersPanel> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    // If it's a bye match or one of the teams is empty, no need to show rosters
+    if (widget.match.status == 'bye' ||
+        widget.match.teamAId.isEmpty ||
+        widget.match.teamBId.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      children: [
+        const Divider(height: 24, thickness: 1),
+        InkWell(
+          onTap: () => setState(() => _isExpanded = !_isExpanded),
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  _isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                  size: 20,
+                  color: AppTheme.primaryColor,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  _isExpanded ? 'إخفاء التشكيلة' : 'عرض التشكيلة واللاعبين',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _TeamPlayersPanel(
-                teamName: match.teamBName,
-                hasTeam: match.teamBId.isNotEmpty,
-                players: players?.teamB ?? const [],
-                isLoading: isLoading,
-                hasError: snapshot.hasError,
-              ),
-            ),
-          ],
-        );
-      },
+          ),
+        ),
+        if (_isExpanded) ...[
+          const SizedBox(height: 12),
+          FutureBuilder<_MatchTeamPlayers>(
+            future: widget.matchTeamPlayers(widget.match),
+            builder: (context, snapshot) {
+              final players = snapshot.data;
+              final isLoading =
+                  snapshot.connectionState == ConnectionState.waiting &&
+                  !snapshot.hasData;
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _TeamPlayersPanel(
+                      teamName: widget.match.teamAName,
+                      hasTeam: widget.match.teamAId.isNotEmpty,
+                      players: players?.teamA ?? const [],
+                      isLoading: isLoading,
+                      hasError: snapshot.hasError,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _TeamPlayersPanel(
+                      teamName: widget.match.teamBName,
+                      hasTeam: widget.match.teamBId.isNotEmpty,
+                      players: players?.teamB ?? const [],
+                      isLoading: isLoading,
+                      hasError: snapshot.hasError,
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ],
     );
   }
 }
@@ -1198,9 +1696,9 @@ class _TeamPlayersPanel extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.grey.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.withValues(alpha: 0.14)),
+        color: Colors.grey.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1208,7 +1706,7 @@ class _TeamPlayersPanel extends StatelessWidget {
           Row(
             children: [
               Icon(
-                Icons.groups_2_outlined,
+                Icons.groups_3_outlined,
                 size: 16,
                 color: colorScheme.primary,
               ),
@@ -1216,30 +1714,30 @@ class _TeamPlayersPanel extends StatelessWidget {
               Expanded(
                 child: Text(
                   teamName,
-                  maxLines: 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 12,
+                    color: AppTheme.textPrimaryColor,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           if (!hasTeam)
             Text(
               'لم يتم تحديد الفريق بعد',
-              style: TextStyle(color: Colors.grey[700], fontSize: 12),
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
             )
           else if (isLoading)
-            const SizedBox(
-              height: 24,
-              child: Align(
-                alignment: AlignmentDirectional.centerStart,
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 8.0),
                 child: SizedBox(
-                  width: 18,
-                  height: 18,
+                  width: 16,
+                  height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
               ),
@@ -1247,32 +1745,44 @@ class _TeamPlayersPanel extends StatelessWidget {
           else if (hasError)
             Text(
               'تعذر تحميل اللاعبين',
-              style: TextStyle(color: colorScheme.error, fontSize: 12),
+              style: TextStyle(color: colorScheme.error, fontSize: 11),
             )
           else if (players.isEmpty)
             Text(
-              'لا يوجد لاعبون مقبولون لهذه البطولة',
-              style: TextStyle(color: Colors.grey[700], fontSize: 12),
+              'لا يوجد لاعبون مسجلون',
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
             )
           else
             ...players.map(
               (player) => Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.person_outline,
-                      size: 15,
-                      color: colorScheme.primary,
+                    Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: const Icon(
+                        Icons.person,
+                        size: 11,
+                        color: AppTheme.primaryColor,
+                      ),
                     ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         player.name,
-                        maxLines: 2,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12),
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w500,
+                          color: AppTheme.textPrimaryColor,
+                        ),
                       ),
                     ),
                   ],

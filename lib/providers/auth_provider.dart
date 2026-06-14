@@ -78,7 +78,24 @@ class AuthProvider extends ChangeNotifier {
         email: email,
         password: password,
       );
-      if (!credential.user!.emailVerified) {
+
+      // Check user role in Firestore to determine if email verification is needed
+      final userDoc = await _firestore
+          .collection('users')
+          .doc(credential.user!.uid)
+          .get();
+
+      if (!userDoc.exists) {
+        await _auth.signOut();
+        throw StateError('لا توجد بيانات مستخدم مرتبطة بهذا الحساب.');
+      }
+
+      final userRole = userDoc.data()?['role'] as String?;
+      final isAdminOrSupervisor =
+          userRole == 'admin' || userRole == 'supervisor';
+
+      // Only require email verification for students (self-registered accounts)
+      if (!credential.user!.emailVerified && !isAdminOrSupervisor) {
         _auth.setLanguageCode("ar");
         await credential.user!.sendEmailVerification();
         await _auth.signOut();
