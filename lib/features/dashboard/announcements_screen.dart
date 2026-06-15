@@ -17,116 +17,12 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   final Set<String> _deletingAnnouncementIds = <String>{};
 
   Future<void> _showCreateAnnouncementDialog() async {
-    final titleController = TextEditingController();
-    final bodyController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    var isSending = false;
-
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('إنشاء إعلان جديد'),
-              content: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextFormField(
-                      controller: titleController,
-                      decoration: const InputDecoration(
-                        labelText: 'عنوان الإعلان',
-                        prefixIcon: Icon(Icons.title),
-                      ),
-                      validator: (value) =>
-                          value == null || value.trim().isEmpty
-                          ? 'العنوان مطلوب'
-                          : null,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: bodyController,
-                      minLines: 4,
-                      maxLines: 6,
-                      decoration: const InputDecoration(
-                        labelText: 'نص الإعلان',
-                        prefixIcon: Icon(Icons.campaign),
-                      ),
-                      validator: (value) =>
-                          value == null || value.trim().isEmpty
-                          ? 'نص الإعلان مطلوب'
-                          : null,
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: isSending
-                      ? null
-                      : () => Navigator.pop(dialogContext),
-                  child: const Text('إلغاء'),
-                ),
-                ElevatedButton.icon(
-                  onPressed: isSending
-                      ? null
-                      : () async {
-                          if (!formKey.currentState!.validate()) return;
-
-                          setDialogState(() => isSending = true);
-                          final messenger = ScaffoldMessenger.of(this.context);
-                          final navigator = Navigator.of(dialogContext);
-
-                          try {
-                            final recipientsCount =
-                                await _notificationRepository
-                                    .sendAnnouncementToAllStudents(
-                                      title: titleController.text.trim(),
-                                      body: bodyController.text.trim(),
-                                    );
-
-                            if (!mounted) return;
-                            if (dialogContext.mounted) navigator.pop();
-
-                            messenger.showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  recipientsCount == 0
-                                      ? 'لا يوجد طلاب لإرسال الإعلان لهم'
-                                      : 'تم إرسال الإعلان إلى $recipientsCount طالب',
-                                ),
-                              ),
-                            );
-                          } catch (e) {
-                            if (dialogContext.mounted) {
-                              setDialogState(() => isSending = false);
-                            }
-                            if (!mounted) return;
-                            messenger.showSnackBar(
-                              SnackBar(content: Text('تعذر إرسال الإعلان: $e')),
-                            );
-                          }
-                        },
-                  icon: isSending
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.send),
-                  label: const Text('إرسال'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      builder: (dialogContext) => _CreateAnnouncementDialog(
+        repository: _notificationRepository,
+      ),
     );
-
-    titleController.dispose();
-    bodyController.dispose();
   }
 
   Future<void> _deleteAnnouncement(AppAnnouncementModel announcement) async {
@@ -372,6 +268,121 @@ class _EmptyAnnouncementsCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _CreateAnnouncementDialog extends StatefulWidget {
+  final AppNotificationRepository repository;
+
+  const _CreateAnnouncementDialog({required this.repository});
+
+  @override
+  State<_CreateAnnouncementDialog> createState() =>
+      _CreateAnnouncementDialogState();
+}
+
+class _CreateAnnouncementDialogState extends State<_CreateAnnouncementDialog> {
+  final _titleController = TextEditingController();
+  final _bodyController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  bool _isSending = false;
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _bodyController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('إنشاء إعلان جديد'),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: _titleController,
+              decoration: const InputDecoration(
+                labelText: 'عنوان الإعلان',
+                prefixIcon: Icon(Icons.title),
+              ),
+              validator: (value) => value == null || value.trim().isEmpty
+                  ? 'العنوان مطلوب'
+                  : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _bodyController,
+              minLines: 4,
+              maxLines: 6,
+              decoration: const InputDecoration(
+                labelText: 'نص الإعلان',
+                prefixIcon: Icon(Icons.campaign),
+              ),
+              validator: (value) => value == null || value.trim().isEmpty
+                  ? 'نص الإعلان مطلوب'
+                  : null,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSending ? null : () => Navigator.pop(context),
+          child: const Text('إلغاء'),
+        ),
+        ElevatedButton.icon(
+          onPressed: _isSending
+              ? null
+              : () async {
+                  if (!_formKey.currentState!.validate()) return;
+
+                  setState(() => _isSending = true);
+                  final messenger = ScaffoldMessenger.of(context);
+                  final navigator = Navigator.of(context);
+
+                  try {
+                    final recipientsCount =
+                        await widget.repository.sendAnnouncementToAllStudents(
+                      title: _titleController.text.trim(),
+                      body: _bodyController.text.trim(),
+                    );
+
+                    if (!mounted) return;
+                    navigator.pop();
+
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          recipientsCount == 0
+                              ? 'لا يوجد طلاب لإرسال الإعلان لهم'
+                              : 'تم إرسال الإعلان إلى $recipientsCount طالب',
+                        ),
+                      ),
+                    );
+                  } catch (e) {
+                    if (mounted) {
+                      setState(() => _isSending = false);
+                    }
+                    messenger.showSnackBar(
+                      SnackBar(content: Text('تعذر إرسال الإعلان: $e')),
+                    );
+                  }
+                },
+          icon: _isSending
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.send),
+          label: const Text('إرسال'),
+        ),
+      ],
     );
   }
 }

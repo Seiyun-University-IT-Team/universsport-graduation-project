@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart' as legacy_provider;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
+import '../../core/theme.dart';
 import '../../models/competition_model.dart';
 import '../../models/sport_model.dart';
 import '../../providers/auth_provider.dart';
@@ -30,8 +32,8 @@ class _CreateCompetitionScreenState extends ConsumerState<CreateCompetitionScree
 
   bool _isLoading = false;
   String? _selectedSportId;
-  String _selectedType = 'team';
-  String _selectedTournamentFormat = 'league';
+  final String _selectedType = 'team';
+  String _selectedTournamentFormat = 'knockout';
   DateTime _startDate = DateTime.now();
   DateTime _endDate = DateTime.now().add(const Duration(days: 7));
 
@@ -63,7 +65,7 @@ class _CreateCompetitionScreenState extends ConsumerState<CreateCompetitionScree
     final picked = await showDatePicker(
       context: context,
       initialDate: _startDate,
-      firstDate: DateTime.now(),
+      firstDate: DateTime.now().subtract(const Duration(days: 305)),
       lastDate: DateTime(2101),
     );
     if (picked == null || picked == _startDate) return;
@@ -167,212 +169,445 @@ class _CreateCompetitionScreenState extends ConsumerState<CreateCompetitionScree
   }
 
   String _dateLabel(DateTime date) {
-    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    return DateFormat('yyyy/MM/dd', 'ar').format(date);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('إنشاء بطولة جديدة')),
+      appBar: AppBar(
+        title: const Text('إنشاء بطولة جديدة'),
+        elevation: 0,
+      ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'تفاصيل البطولة',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'اسم البطولة',
-                  prefixIcon: Icon(Icons.emoji_events),
+        child: Column(
+          children: [
+            // Top Gradient Banner
+            Container(
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppTheme.primaryColor,
+                    Color(0xFF007AD9),
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
                 ),
-                validator: (value) => value == null || value.trim().isEmpty
-                    ? 'هذا الحقل مطلوب'
-                    : null,
-              ),
-              const SizedBox(height: 24),
-              Consumer(
-                builder: (context, ref, child) {
-                  final authProvider = legacy_provider.Provider.of<AuthProvider>(context, listen: false);
-                  final user = authProvider.currentUser;
-                  if (user?.isSupervisor == true) {
-                    return InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'الكلية التابعة لها البطولة',
-                        prefixIcon: Icon(Icons.account_balance),
-                      ),
-                      child: Text(user?.college ?? 'غير محدد'),
-                    );
-                  }
-                  
-                  final collegesAsync = ref.watch(collegesProvider);
-                  final selectedCollege = ref.watch(selectedCollegeProvider);
-
-                  return collegesAsync.when(
-                    data: (colleges) {
-                      final selectedValue = colleges.contains(selectedCollege) ? selectedCollege : null;
-                      return DropdownButtonFormField<College?>(
-                        key: ValueKey(selectedValue),
-                        initialValue: selectedValue,
-                        decoration: const InputDecoration(
-                          labelText: 'الكلية (اختياري)',
-                          prefixIcon: Icon(Icons.account_balance),
-                        ),
-                        items: [
-                          const DropdownMenuItem<College?>(
-                            value: null,
-                            child: Text('عام (لجميع الكليات)'),
-                          ),
-                          ...colleges.map((college) => DropdownMenuItem(
-                            value: college,
-                            child: Text(college.name),
-                          )),
-                        ],
-                        onChanged: (college) {
-                          ref.read(selectedCollegeProvider.notifier).select(college);
-                        },
-                      );
-                    },
-                    loading: () => const CircularProgressIndicator(),
-                    error: (error, _) => const Text('تعذر تحميل الكليات'),
-                  );
-                },
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'الرياضة',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              if (_sports.isEmpty)
-                const Center(child: CircularProgressIndicator())
-              else
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedSportId,
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.sports),
-                  ),
-                  items: _sports.map((sport) {
-                    return DropdownMenuItem(
-                      value: sport.id,
-                      child: Text(sport.name),
-                    );
-                  }).toList(),
-                  onChanged: (value) =>
-                      setState(() => _selectedSportId = value),
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(32),
+                  bottomRight: Radius.circular(32),
                 ),
-              const SizedBox(height: 24),
-              const Text(
-                'نوع المشاركين',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 8),
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(
-                    value: 'team',
-                    label: Text('فرق'),
-                    icon: Icon(Icons.groups),
-                  ),
-                  ButtonSegment(
-                    value: 'individual',
-                    label: Text('فردي'),
-                    icon: Icon(Icons.person),
-                  ),
-                ],
-                selected: {_selectedType},
-                onSelectionChanged: (selection) {
-                  setState(() => _selectedType = selection.first);
-                },
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'نظام البطولة',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                initialValue: _selectedTournamentFormat,
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.account_tree),
-                ),
-                items: const [
-                  DropdownMenuItem(value: 'league', child: Text('نظام دوري')),
-                  DropdownMenuItem(
-                    value: 'knockout',
-                    child: Text('خروج مغلوب'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'mixed',
-                    child: Text('مختلط - مجموعات ثم خروج مغلوب'),
-                  ),
-                ],
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() => _selectedTournamentFormat = value);
-                  }
-                },
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'تاريخ البطولة',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              Row(
+              padding: const EdgeInsets.only(bottom: 32, top: 12, left: 24, right: 24),
+              child: Column(
                 children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: () => _selectStartDate(context),
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: 'تاريخ البداية',
-                          prefixIcon: Icon(Icons.calendar_today),
-                        ),
-                        child: Text(_dateLabel(_startDate)),
-                      ),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.emoji_events_outlined,
+                      color: Colors.white,
+                      size: 44,
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: InkWell(
-                      onTap: () => _selectEndDate(context),
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: 'تاريخ النهاية',
-                          prefixIcon: Icon(Icons.event),
-                        ),
-                        child: Text(_dateLabel(_endDate)),
-                      ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'إنشاء بطولة رياضية جديدة',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'أدخل تفاصيل البطولة واصنع جدول المباريات تلقائياً للطلاب',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontSize: 12,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 48),
-              if (_isLoading)
-                const Center(child: CircularProgressIndicator())
-              else
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _submitCompetition,
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+            
+            // Form Container
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Form Card
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.edit_note, color: AppTheme.primaryColor, size: 20),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'المعلومات الأساسية',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimaryColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Competition Name Input
+                          TextFormField(
+                            controller: _nameController,
+                            decoration: InputDecoration(
+                              labelText: 'اسم البطولة (مثال: دوري كرة القدم)',
+                              prefixIcon: const Icon(Icons.workspace_premium),
+                              fillColor: Colors.grey.withValues(alpha: 0.02),
+                            ),
+                            validator: (value) => value == null || value.trim().isEmpty
+                                ? 'اسم البطولة مطلوب'
+                                : null,
+                          ),
+                          const SizedBox(height: 20),
+
+                          // College Picker
+                          Consumer(
+                            builder: (context, ref, child) {
+                              final authProvider = legacy_provider.Provider.of<AuthProvider>(context, listen: false);
+                              final user = authProvider.currentUser;
+                              if (user?.isSupervisor == true) {
+                                return InputDecorator(
+                                  decoration: InputDecoration(
+                                    labelText: 'الكلية التابعة لها البطولة',
+                                    prefixIcon: const Icon(Icons.account_balance),
+                                    fillColor: Colors.grey.withValues(alpha: 0.02),
+                                  ),
+                                  child: Text(
+                                    user?.college ?? 'غير محدد',
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                );
+                              }
+                              
+                              final collegesAsync = ref.watch(collegesProvider);
+                              final selectedCollege = ref.watch(selectedCollegeProvider);
+
+                              return collegesAsync.when(
+                                data: (colleges) {
+                                  final selectedValue = colleges.contains(selectedCollege) ? selectedCollege : null;
+                                  return DropdownButtonFormField<College?>(
+                                    key: ValueKey(selectedValue),
+                                    initialValue: selectedValue,
+                                    decoration: InputDecoration(
+                                      labelText: 'الكلية المنظمة (اختياري)',
+                                      prefixIcon: const Icon(Icons.account_balance),
+                                      fillColor: Colors.grey.withValues(alpha: 0.02),
+                                    ),
+                                    items: [
+                                      const DropdownMenuItem<College?>(
+                                        value: null,
+                                        child: Text('عام (لجميع الكليات)'),
+                                      ),
+                                      ...colleges.map((college) => DropdownMenuItem(
+                                        value: college,
+                                        child: Text(college.name),
+                                      )),
+                                    ],
+                                    onChanged: (college) {
+                                      ref.read(selectedCollegeProvider.notifier).select(college);
+                                    },
+                                  );
+                                },
+                                loading: () => const Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 8.0),
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                ),
+                                error: (error, _) => const Text('تعذر تحميل الكليات'),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Sport Category Dropdown
+                          const Text(
+                            'نوع الرياضة',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.textPrimaryColor,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          if (_sports.isEmpty)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8.0),
+                                child: CircularProgressIndicator(),
+                              ),
+                            )
+                          else
+                            DropdownButtonFormField<String>(
+                              initialValue: _selectedSportId,
+                              decoration: InputDecoration(
+                                prefixIcon: const Icon(Icons.sports),
+                                fillColor: Colors.grey.withValues(alpha: 0.02),
+                              ),
+                              items: _sports.map((sport) {
+                                return DropdownMenuItem(
+                                  value: sport.id,
+                                  child: Text(sport.name),
+                                );
+                              }).toList(),
+                              onChanged: (value) =>
+                                  setState(() => _selectedSportId = value),
+                            ),
+                          const SizedBox(height: 20),
+
+                          // Tournament Format Dropdown
+                          const Text(
+                            'نظام البطولة والجدولة',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.textPrimaryColor,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<String>(
+                            initialValue: _selectedTournamentFormat,
+                            decoration: InputDecoration(
+                              prefixIcon: const Icon(Icons.account_tree),
+                              fillColor: Colors.grey.withValues(alpha: 0.02),
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'knockout',
+                                child: Text('نظام خروج المغلوب (تصفيات مباشرة)'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'mixed',
+                                child: Text('نظام مختلط (مجموعات ثم تصفيات)'),
+                              ),
+                            ],
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(() => _selectedTournamentFormat = value);
+                              }
+                            },
+                          ),
+                        ],
+                      ),
                     ),
-                    child: const Text(
-                      'إنشاء البطولة',
-                      style: TextStyle(fontSize: 18),
+                    const SizedBox(height: 20),
+                    
+                    // Date Card
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.calendar_month, color: AppTheme.primaryColor, size: 20),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'الفترة الزمنية للبطولة',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimaryColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              // Start Date Card Button
+                              Expanded(
+                                child: InkWell(
+                                  onTap: () => _selectStartDate(context),
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primaryColor.withValues(alpha: 0.04),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: AppTheme.primaryColor.withValues(alpha: 0.15),
+                                      ),
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        const Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(Icons.calendar_today, size: 14, color: AppTheme.primaryColor),
+                                            SizedBox(width: 4),
+                                            Text(
+                                              'تاريخ البدء',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: AppTheme.primaryColor,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          _dateLabel(_startDate),
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppTheme.textPrimaryColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              
+                              // End Date Card Button
+                              Expanded(
+                                child: InkWell(
+                                  onTap: () => _selectEndDate(context),
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.teal.withValues(alpha: 0.04),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: Colors.teal.withValues(alpha: 0.15),
+                                      ),
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        const Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(Icons.event, size: 14, color: Colors.teal),
+                                            SizedBox(width: 4),
+                                            Text(
+                                              'تاريخ الانتهاء',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.teal,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          _dateLabel(_endDate),
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppTheme.textPrimaryColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 32),
+                    
+                    // Create Button
+                    if (_isLoading)
+                      const Center(child: CircularProgressIndicator())
+                    else
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          gradient: const LinearGradient(
+                            colors: [
+                              AppTheme.primaryColor,
+                              Color(0xFF007AD9),
+                            ],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: ElevatedButton(
+                          onPressed: _submitCompetition,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            foregroundColor: Colors.white,
+                            shadowColor: Colors.transparent,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            minimumSize: const Size(double.infinity, 54),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.add_circle_outline, size: 22),
+                              SizedBox(width: 8),
+                              Text(
+                                'إنشاء وإطلاق البطولة',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 20),
+                  ],
                 ),
-            ],
-          ),
+              ),
+            ),
+          ],
         ),
       ),
     );

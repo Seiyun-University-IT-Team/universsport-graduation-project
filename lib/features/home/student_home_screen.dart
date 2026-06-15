@@ -124,6 +124,7 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
     final titles = ['الجدول', 'النتائج', 'تسجيل', 'البطولات', 'الملف الشخصي'];
 
     return Scaffold(
+      extendBody: true,
       appBar: AppBar(
         title: Text(titles[_selectedIndex]),
         actions: [
@@ -161,9 +162,9 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
 
   Widget _buildRegistrationPage(UserModel? user) {
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
       children: [
-        _buildWelcomeCard(user?.name ?? 'طالب', user?.college),
+        _buildWelcomeCard(user?.name ?? 'طالب', user?.college, user?.id),
         const SizedBox(height: 20),
         _buildAvailableCompetitionsSection(user),
         const SizedBox(height: 24),
@@ -199,44 +200,166 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
     );
   }
 
-  Widget _buildWelcomeCard(String name, String? college) {
-    return Card(
-      elevation: 3,
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 28,
-              backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
-              child: const Icon(
-                Icons.person,
-                color: AppTheme.primaryColor,
-                size: 30,
-              ),
+  Widget _buildWelcomeCard(String name, String? college, String? userId) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppTheme.primaryColor, Color(0xFF003366)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryColor.withValues(alpha: 0.25),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -20,
+            top: -20,
+            child: CircleAvatar(
+              radius: 60,
+              backgroundColor: Colors.white.withValues(alpha: 0.05),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'مرحبًا، $name',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    college == null || college.trim().isEmpty
-                        ? 'تابع بطولاتك وطلباتك ومباريات فريقك من هنا.'
-                        : 'تابع بطولاتك ومبارياتك - $college',
-                    style: TextStyle(color: Colors.grey[700]),
+          ),
+          Positioned(
+            left: -30,
+            bottom: -30,
+            child: CircleAvatar(
+              radius: 50,
+              backgroundColor: Colors.white.withValues(alpha: 0.03),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: const BoxDecoration(
+                        color: Colors.white30,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const CircleAvatar(
+                        radius: 26,
+                        backgroundColor: Colors.white,
+                        child: Icon(
+                          Icons.sports_handball_rounded,
+                          color: AppTheme.primaryColor,
+                          size: 28,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'مرحبًا، $name 👋',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            college == null || college.trim().isEmpty
+                                ? 'تابع بطولاتك وطلباتك ومباريات فريقك من هنا.'
+                                : 'كلية $college 🎓',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                if (userId != null) ...[
+                  const SizedBox(height: 20),
+                  const Divider(color: Colors.white24, height: 1),
+                  const SizedBox(height: 16),
+                  StreamBuilder<List<RegistrationModel>>(
+                    stream: _registrationRepo.getRegistrationsByUser(userId),
+                    builder: (context, snapshot) {
+                      final regs = snapshot.data ?? [];
+                      final approvedCount = regs.where((r) => r.status == 'approved').length;
+                      final pendingCount = regs.where((r) => r.status == 'pending').length;
+
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildStatItem(
+                            icon: Icons.assignment_rounded,
+                            label: 'طلباتي الكلية',
+                            value: '${regs.length}',
+                          ),
+                          _buildStatItem(
+                            icon: Icons.check_circle_rounded,
+                            label: 'المقبولة',
+                            value: '$approvedCount',
+                          ),
+                          _buildStatItem(
+                            icon: Icons.hourglass_empty_rounded,
+                            label: 'قيد الانتظار',
+                            value: '$pendingCount',
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Column(
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: Colors.white70, size: 14),
+            const SizedBox(width: 4),
+            Text(
+              value,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white60,
+            fontSize: 11,
+          ),
+        ),
+      ],
     );
   }
 
@@ -291,92 +414,207 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
   Widget _buildCompetitionCard(CompetitionModel competition) {
     final isSubmitting = _submittingCompetitionIds.contains(competition.id);
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      color: AppTheme.primaryColor,
-      child: Padding(
-        padding: const EdgeInsets.all(14),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(
+          color: Colors.grey.withValues(alpha: 0.1),
+          width: 1,
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                const Icon(Icons.emoji_events, size: 32, color: Colors.white),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    competition.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
+            Container(
+              height: 4,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AppTheme.primaryColor, Colors.blueAccent],
                 ),
-              ],
+              ),
             ),
-            const SizedBox(height: 10),
-            Text(
-              _formatTournament(competition.tournamentFormat),
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
-            ),
-            Text(
-              'تبدأ: ${_formatDate(competition.startDate)}',
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => StudentTournamentBracketScreen(
-                            competition: competition,
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          _tournamentIcon(competition.tournamentFormat),
+                          color: AppTheme.primaryColor,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              competition.name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppTheme.textPrimaryColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              competition.college != null && competition.college!.isNotEmpty
+                                  ? 'البطولة الرسمية لكلية ${competition.college}'
+                                  : 'بطولة عامة مفتوحة للجميع',
+                              style: const TextStyle(
+                                color: Colors.grey,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(height: 1),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const Icon(Icons.info_outline, size: 16, color: Colors.grey),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('نظام البطولة', style: TextStyle(color: Colors.grey, fontSize: 10)),
+                                  Text(
+                                    _formatTournament(competition.tournamentFormat),
+                                    style: const TextStyle(
+                                      color: AppTheme.textPrimaryColor,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const Icon(Icons.calendar_today_outlined, size: 16, color: Colors.grey),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('تاريخ البدء', style: TextStyle(color: Colors.grey, fontSize: 10)),
+                                  Text(
+                                    _formatDate(competition.startDate),
+                                    style: const TextStyle(
+                                      color: AppTheme.textPrimaryColor,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => StudentTournamentBracketScreen(
+                                  competition: competition,
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(
+                            Icons.account_tree_outlined,
+                            size: 16,
+                            color: AppTheme.primaryColor,
+                          ),
+                          label: const Text(
+                            'عرض المسار',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.primaryColor,
+                            side: const BorderSide(color: AppTheme.primaryColor),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
                           ),
                         ),
-                      );
-                    },
-                    icon: const Icon(
-                      Icons.account_tree,
-                      size: 16,
-                      color: Colors.white,
-                    ),
-                    label: const Text(
-                      'عرض المسار',
-                      style: TextStyle(color: Colors.white, fontSize: 12),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.white54),
-                      minimumSize: const Size.fromHeight(38),
-                    ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: isSubmitting
+                              ? null
+                              : () => _registerForCompetition(competition),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                          ),
+                          child: isSubmitting
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
+                                )
+                              : const Text(
+                                  'تسجيل بالبطولة',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: isSubmitting
-                        ? null
-                        : () => _registerForCompetition(competition),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: AppTheme.primaryColor,
-                      minimumSize: const Size.fromHeight(38),
-                    ),
-                    child: isSubmitting
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('تسجيل'),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
@@ -1148,22 +1386,32 @@ class _StudentBottomNavigation extends StatelessWidget {
   });
 
   static const _destinations = [
-    _StudentNavDestination(Icons.calendar_month, 'الجدول'),
-    _StudentNavDestination(Icons.scoreboard, 'النتائج'),
-    _StudentNavDestination(Icons.app_registration, 'تسجيل'),
-    _StudentNavDestination(Icons.workspace_premium, 'الأبطال'),
-    _StudentNavDestination(Icons.person, 'الملف'),
+    _StudentNavDestination(Icons.calendar_month_outlined, 'الجدول'),
+    _StudentNavDestination(Icons.scoreboard_outlined, 'النتائج'),
+    _StudentNavDestination(Icons.app_registration_rounded, 'تسجيل'),
+    _StudentNavDestination(Icons.workspace_premium_outlined, 'البطولات'),
+    _StudentNavDestination(Icons.person_outline_rounded, 'الملف'),
   ];
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Material(
-        elevation: 10,
-        color: Theme.of(context).colorScheme.surface,
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
         child: SizedBox(
-          height: 64,
+          height: 70,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: List.generate(_destinations.length, (index) {
@@ -1174,7 +1422,9 @@ class _StudentBottomNavigation extends StatelessWidget {
               return Expanded(
                 child: InkWell(
                   onTap: () => onTap(index),
-                  borderRadius: BorderRadius.circular(isCenter ? 16 : 10),
+                  splashColor: AppTheme.primaryColor.withValues(alpha: 0.05),
+                  highlightColor: Colors.transparent,
+                  borderRadius: BorderRadius.circular(24),
                   child: Center(
                     child: isCenter
                         ? _CenterNavItem(
@@ -1204,24 +1454,49 @@ class _PlainNavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? AppTheme.primaryColor : Colors.grey[600];
+    final color = selected ? AppTheme.primaryColor : Colors.grey[400];
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(destination.icon, color: color, size: 20),
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppTheme.primaryColor.withValues(alpha: 0.08)
+                : Colors.transparent,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            destination.icon,
+            color: color,
+            size: 22,
+          ),
+        ),
         const SizedBox(height: 2),
         Text(
           destination.label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            color: color,
+            color: selected ? AppTheme.primaryColor : Colors.grey[600],
             fontSize: 10,
             fontWeight: selected ? FontWeight.bold : FontWeight.w500,
           ),
         ),
+        if (selected) ...[
+          const SizedBox(height: 2),
+          Container(
+            width: 4,
+            height: 4,
+            decoration: const BoxDecoration(
+              color: AppTheme.primaryColor,
+              shape: BoxShape.circle,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -1235,48 +1510,54 @@ class _CenterNavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: selected ? 72 : 64,
-        height: 50,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-        decoration: BoxDecoration(
-          color: selected ? AppTheme.primaryColor : Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppTheme.primaryColor),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.primaryColor.withValues(
-                alpha: selected ? 0.28 : 0.12,
-              ),
-              blurRadius: selected ? 10 : 6,
-              offset: const Offset(0, 3),
-            ),
-          ],
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      width: 56,
+      height: 56,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: selected
+              ? [AppTheme.primaryColor, const Color(0xFF00386B)]
+              : [Colors.white, const Color(0xFFF0F4F8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              destination.icon,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: selected ? Colors.transparent : AppTheme.primaryColor.withValues(alpha: 0.3),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryColor.withValues(
+              alpha: selected ? 0.35 : 0.1,
+            ),
+            blurRadius: selected ? 12 : 6,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            destination.icon,
+            color: selected ? Colors.white : AppTheme.primaryColor,
+            size: 24,
+          ),
+          const SizedBox(height: 1),
+          Text(
+            destination.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
               color: selected ? Colors.white : AppTheme.primaryColor,
-              size: 20,
+              fontSize: 9,
+              fontWeight: FontWeight.bold,
             ),
-            const SizedBox(height: 1),
-            Text(
-              destination.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: selected ? Colors.white : AppTheme.primaryColor,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
