@@ -2,14 +2,19 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/app_announcement_model.dart';
 import '../models/app_notification_model.dart';
+import '../services/fcm_push_service.dart';
 import 'user_repository.dart';
+import '../core/demo_config.dart';
 
 class AppNotificationRepository {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  FirebaseFirestore get _firestore => FirebaseFirestore.instance;
   final UserRepository _userRepository = UserRepository();
   final String _collection = 'notifications';
 
   Stream<List<AppNotificationModel>> watchUserNotifications(String userId) {
+    if (AppDemoConfig.useMockData) {
+      return Stream.value(AppDemoConfig.mockNotifications);
+    }
     return _firestore
         .collection(_collection)
         .where('recipient_id', isEqualTo: userId)
@@ -24,12 +29,18 @@ class AppNotificationRepository {
   }
 
   Stream<int> watchUnreadCount(String userId) {
+    if (AppDemoConfig.useMockData) {
+      return Stream.value(AppDemoConfig.mockNotifications.where((n) => !n.isRead).length);
+    }
     return watchUserNotifications(userId).map(
       (notifications) => notifications.where((item) => !item.isRead).length,
     );
   }
 
   Stream<List<AppAnnouncementModel>> watchAnnouncements() {
+    if (AppDemoConfig.useMockData) {
+      return Stream.value(AppDemoConfig.mockAnnouncements);
+    }
     return _firestore
         .collection(_collection)
         .where('type', isEqualTo: 'announcement')
@@ -85,6 +96,24 @@ class AppNotificationRepository {
         .collection(_collection)
         .doc(notification.id)
         .set(notification.toMap());
+
+    // Send the actual push notification
+    try {
+      final userDoc = await _firestore.collection('users').doc(recipientId).get();
+      if (userDoc.exists) {
+        final fcmToken = userDoc.data()?['fcm_token'] as String?;
+        if (fcmToken != null && fcmToken.isNotEmpty) {
+          await FcmPushService.sendPushMessage(
+            fcmToken: fcmToken,
+            title: title,
+            body: body,
+            data: {'type': type, 'relatedId': relatedId ?? ''},
+          );
+        }
+      }
+    } catch (e) {
+      // Ignore errors so the app doesn't crash on failed pushes
+    }
   }
 
   Future<void> sendToUsers({

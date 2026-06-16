@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../models/competition_model.dart';
 import '../../repositories/competition_repository.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
 
 class ManageCompetitionsScreen extends StatefulWidget {
   const ManageCompetitionsScreen({super.key});
@@ -65,10 +67,18 @@ class _ManageCompetitionsScreenState extends State<ManageCompetitionsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentUser = Provider.of<AuthProvider>(context, listen: false).currentUser;
+    final isSupervisor = currentUser?.isSupervisor == true;
+    final supervisorCollege = currentUser?.college;
+    
+    final stream = (isSupervisor && supervisorCollege != null)
+        ? _competitionRepository.getCompetitionsByCollege(supervisorCollege)
+        : _competitionRepository.getAllCompetitions();
+
     return Scaffold(
       appBar: AppBar(title: const Text('إدارة البطولات')),
       body: StreamBuilder<List<CompetitionModel>>(
-        stream: _competitionRepository.getAllCompetitions(),
+        stream: stream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());

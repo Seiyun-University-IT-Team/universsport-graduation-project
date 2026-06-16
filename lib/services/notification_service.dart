@@ -16,13 +16,17 @@ class NotificationService {
   factory NotificationService() => _instance;
   NotificationService._internal();
 
-  final FirebaseMessaging _fcm = FirebaseMessaging.instance;
+  FirebaseMessaging get _fcm => FirebaseMessaging.instance;
   final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
   
   bool _isInitialized = false;
 
   Future<void> initialize() async {
     if (_isInitialized) return;
+    if (kIsWeb || Platform.isWindows) {
+      _isInitialized = true;
+      return;
+    }
 
     // 1. Request permissions for iOS and Android 13+
     NotificationSettings settings = await _fcm.requestPermission(
@@ -51,6 +55,18 @@ class NotificationService {
     );
 
     await _localNotifications.initialize(settings: initSettings);
+
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'unisport_channel_id',
+      'إشعارات رياضة جامعة سيئون',
+      description: 'إشعارات المباريات والموافقات',
+      importance: Importance.max,
+    );
+
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
 
     // 3. Set up Background Message Handler
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
@@ -96,6 +112,7 @@ class NotificationService {
   /// Retrieves the FCM token and saves it to the user's document in Firestore.
   /// This token is required so your backend (Cloud Functions) knows which device to ping.
   Future<void> saveUserToken(String userId) async {
+    if (kIsWeb || Platform.isWindows) return;
     try {
       String? token;
       
@@ -115,7 +132,7 @@ class NotificationService {
           await FirebaseFirestore.instance.collection('users').doc(userId).update({
             'fcm_token': token,
           });
-          debugPrint('FCM Token Saved for User: \$userId');
+          debugPrint('FCM Token Saved for User: $userId');
         }
       }
 
@@ -127,17 +144,20 @@ class NotificationService {
       });
 
     } catch (e) {
-      debugPrint('Error saving FCM token: \$e');
+      debugPrint('Error saving FCM token: $e');
     }
   }
 
   /// Subscribes the device to a specific topic (e.g. 'all_students', 'competition_123')
   Future<void> subscribeToTopic(String topic) async {
+    if (kIsWeb || Platform.isWindows) return;
     await _fcm.subscribeToTopic(topic);
   }
 
   /// Unsubscribes the device from a specific topic
   Future<void> unsubscribeFromTopic(String topic) async {
+    if (kIsWeb || Platform.isWindows) return;
     await _fcm.unsubscribeFromTopic(topic);
   }
 }
+

@@ -21,7 +21,7 @@ class _AddAdminScreenState extends ConsumerState<AddAdminScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  
+
   UserRole _selectedRole = UserRole.admin;
 
   @override
@@ -52,7 +52,7 @@ class _AddAdminScreenState extends ConsumerState<AddAdminScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     final selectedCollege = ref.read(selectedCollegeProvider);
     if (_selectedRole == UserRole.supervisor && selectedCollege == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -64,6 +64,9 @@ class _AddAdminScreenState extends ConsumerState<AddAdminScreen> {
     final authProvider = legacy_provider.Provider.of<AuthProvider>(context, listen: false);
 
     try {
+      // حفظ الرتبة الحالية للمستخدم المنشأ قبل تصفير الحقول وإعادة بناء الواجهة
+      final currentRole = _selectedRole;
+
       await authProvider.createAdminAccount(
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
@@ -82,8 +85,15 @@ class _AddAdminScreenState extends ConsumerState<AddAdminScreen> {
         _selectedRole = UserRole.admin;
       });
 
+      // عرض الرسائل المخصصة المطلوبة بناءً على نوع الحساب المنشأ
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_selectedRole == UserRole.admin ? 'تم إنشاء حساب المدير بنجاح' : 'تم إنشاء حساب المشرف بنجاح')),
+        SnackBar(
+          content: Text(
+            currentRole == UserRole.admin
+                ? 'تم إنشاء حساب مدير نظام'
+                : 'تم إنشاء حساب مشرف كلية',
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -144,7 +154,7 @@ class _AddAdminScreenState extends ConsumerState<AddAdminScreen> {
                   prefixIcon: Icon(Icons.person),
                 ),
                 validator: (value) =>
-                    value == null || value.trim().isEmpty ? 'مطلوب' : null,
+                value == null || value.trim().isEmpty ? 'مطلوب' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -200,10 +210,10 @@ class _AddAdminScreenState extends ConsumerState<AddAdminScreen> {
               isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : ElevatedButton.icon(
-                      onPressed: _submit,
-                      icon: Icon(_selectedRole == UserRole.admin ? Icons.admin_panel_settings : Icons.supervisor_account),
-                      label: Text(_selectedRole == UserRole.admin ? 'إنشاء حساب مدير' : 'إنشاء حساب مشرف'),
-                    ),
+                onPressed: _submit,
+                icon: Icon(_selectedRole == UserRole.admin ? Icons.admin_panel_settings : Icons.supervisor_account),
+                label: Text(_selectedRole == UserRole.admin ? 'إنشاء حساب مدير' : 'إنشاء حساب مشرف'),
+              ),
             ],
           ),
         ),
@@ -236,16 +246,16 @@ class _CollegeDropdown extends ConsumerWidget {
           items: colleges
               .map(
                 (college) => DropdownMenuItem<College>(
-                  value: college,
-                  child: Text(college.name),
-                ),
-              )
+              value: college,
+              child: Text(college.name),
+            ),
+          )
               .toList(),
           onChanged: colleges.isEmpty
               ? null
               : (college) {
-                  ref.read(selectedCollegeProvider.notifier).select(college);
-                },
+            ref.read(selectedCollegeProvider.notifier).select(college);
+          },
           validator: (value) {
             if (colleges.isEmpty) {
               return 'لا توجد كليات متاحة';
@@ -289,4 +299,3 @@ class _CollegeDropdown extends ConsumerWidget {
     );
   }
 }
-

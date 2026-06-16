@@ -1,11 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/admin_report_model.dart';
+import '../core/demo_config.dart';
 
 class AdminReportRepository {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  FirebaseFirestore get _firestore => FirebaseFirestore.instance;
 
   Future<AdminReportModel> getReport() async {
+    if (AppDemoConfig.useMockData) {
+      return AppDemoConfig.mockReport;
+    }
+
     final sportsFuture = _firestore.collection('sports').get();
     final competitionsFuture = _firestore.collection('competitions').get();
     final teamsFuture = _firestore.collection('teams').get();

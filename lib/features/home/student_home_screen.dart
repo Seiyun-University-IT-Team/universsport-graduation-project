@@ -14,6 +14,7 @@ import '../../repositories/app_notification_repository.dart';
 import '../../repositories/competition_repository.dart';
 import '../../repositories/match_repository.dart';
 import '../../repositories/registration_repository.dart';
+import '../../services/notification_service.dart';
 import 'student_tournament_bracket_screen.dart';
 
 class StudentHomeScreen extends ConsumerStatefulWidget {
@@ -128,6 +129,16 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen> {
       appBar: AppBar(
         title: Text(titles[_selectedIndex]),
         actions: [
+          IconButton(
+            tooltip: 'اختبار الإشعارات',
+            icon: const Icon(Icons.notification_add),
+            onPressed: () async {
+              await NotificationService().showLocalNotification(
+                title: 'تجربة إشعار',
+                body: 'هذا إشعار محلي من التطبيق يعمل بنجاح!',
+              );
+            },
+          ),
           IconButton(
             tooltip: 'الأبطال',
             icon: const Icon(Icons.workspace_premium),

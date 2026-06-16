@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/registration_model.dart';
+import '../core/demo_config.dart';
 
 class DuplicateRegistrationException implements Exception {
   const DuplicateRegistrationException();
@@ -9,10 +10,11 @@ class DuplicateRegistrationException implements Exception {
 }
 
 class RegistrationRepository {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  FirebaseFirestore get _firestore => FirebaseFirestore.instance;
   final String _collection = 'registrations';
 
   Future<void> addRegistration(RegistrationModel registration) async {
+    if (AppDemoConfig.useMockData) return;
     await _firestore
         .collection(_collection)
         .doc(registration.id)
@@ -24,6 +26,7 @@ class RegistrationRepository {
     required String sportId,
     required String competitionId,
   }) async {
+    if (AppDemoConfig.useMockData) return;
     final existingRegistration = await getCompetitionRegistration(
       userId: userId,
       competitionId: competitionId,
@@ -63,6 +66,15 @@ class RegistrationRepository {
     required String userId,
     required String competitionId,
   }) async {
+    if (AppDemoConfig.useMockData) {
+      try {
+        return AppDemoConfig.mockRegistrations.firstWhere(
+          (reg) => reg.userId == userId && reg.competitionId == competitionId,
+        );
+      } catch (_) {
+        return null;
+      }
+    }
     final snapshot = await _firestore
         .collection(_collection)
         .where('user_id', isEqualTo: userId)
@@ -79,12 +91,18 @@ class RegistrationRepository {
   }
 
   Future<void> updateRegistrationStatus(String id, String status) async {
+    if (AppDemoConfig.useMockData) return;
     await _firestore.collection(_collection).doc(id).update({'status': status});
   }
 
   Future<List<RegistrationModel>> getApprovedRegistrationsByCompetition(
     String competitionId,
   ) async {
+    if (AppDemoConfig.useMockData) {
+      return AppDemoConfig.mockRegistrations
+          .where((reg) => reg.competitionId == competitionId && reg.status == 'approved')
+          .toList();
+    }
     final snapshot = await _firestore
         .collection(_collection)
         .where('competition_id', isEqualTo: competitionId)
@@ -97,6 +115,12 @@ class RegistrationRepository {
   }
 
   Stream<List<RegistrationModel>> getRegistrationsByUser(String userId) {
+    if (AppDemoConfig.useMockData) {
+      final filtered = AppDemoConfig.mockRegistrations
+          .where((reg) => reg.userId == userId)
+          .toList();
+      return Stream.value(filtered);
+    }
     return _firestore
         .collection(_collection)
         .where('user_id', isEqualTo: userId)
@@ -109,6 +133,12 @@ class RegistrationRepository {
   }
 
   Stream<List<RegistrationModel>> getPendingRegistrations() {
+    if (AppDemoConfig.useMockData) {
+      final filtered = AppDemoConfig.mockRegistrations
+          .where((reg) => reg.status == 'pending')
+          .toList();
+      return Stream.value(filtered);
+    }
     return _firestore
         .collection(_collection)
         .where('status', isEqualTo: 'pending')
@@ -130,3 +160,4 @@ class RegistrationRepository {
     return '${safeUserId}_$safeCompetitionId';
   }
 }
+

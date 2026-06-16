@@ -7,6 +7,7 @@ import 'core/theme.dart';
 import 'providers/auth_provider.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/register_screen.dart';
+import 'features/auth/onboarding_screen.dart';
 import 'features/dashboard/admin_dashboard_screen.dart';
 import 'features/dashboard/add_admin_screen.dart';
 import 'features/home/student_home_screen.dart';
@@ -35,7 +36,7 @@ class _UniSportAppState extends State<UniSportApp> {
   late final AuthProvider _authProvider;
   late final GoRouter _router;
 
-  static const Set<String> _publicRoutes = {'/', '/register', '/auth_loading'};
+  static const Set<String> _publicRoutes = {'/', '/register', '/auth_loading', '/onboarding'};
 
   static const Set<String> _studentRoutes = {
     '/student_home',
@@ -72,6 +73,10 @@ class _UniSportAppState extends State<UniSportApp> {
         GoRoute(
           path: '/register',
           builder: (context, state) => const RegisterScreen(),
+        ),
+        GoRoute(
+          path: '/onboarding',
+          builder: (context, state) => const OnboardingScreen(),
         ),
         GoRoute(
           path: '/auth_loading',
@@ -156,7 +161,13 @@ class _UniSportAppState extends State<UniSportApp> {
     final user = _authProvider.currentUser;
 
     if (user == null) {
-      if (location == '/auth_loading') return '/';
+      if (!_authProvider.seenOnboarding && location != '/onboarding') {
+        return '/onboarding';
+      }
+      if (location == '/auth_loading' || location == '/onboarding') {
+        if (_authProvider.seenOnboarding) return '/';
+        return null;
+      }
       return isPublicRoute ? null : '/';
     }
 
