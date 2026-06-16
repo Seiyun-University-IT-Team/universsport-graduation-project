@@ -1,11 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/competition_model.dart';
+import '../core/demo_config.dart';
 
 class CompetitionRepository {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  FirebaseFirestore get _firestore => FirebaseFirestore.instance;
   final String _collection = 'competitions';
 
   Future<void> addCompetition(CompetitionModel competition) async {
+    if (AppDemoConfig.useMockData) return;
     await _firestore
         .collection(_collection)
         .doc(competition.id)
@@ -13,6 +15,7 @@ class CompetitionRepository {
   }
 
   Future<void> updateCompetition(CompetitionModel competition) async {
+    if (AppDemoConfig.useMockData) return;
     await _firestore
         .collection(_collection)
         .doc(competition.id)
@@ -75,6 +78,13 @@ class CompetitionRepository {
   }
 
   Future<CompetitionModel?> getCompetitionById(String id) async {
+    if (AppDemoConfig.useMockData) {
+      try {
+        return AppDemoConfig.mockCompetitions.firstWhere((comp) => comp.id == id);
+      } catch (_) {
+        return null;
+      }
+    }
     final doc = await _firestore.collection(_collection).doc(id).get();
     if (doc.exists) {
       return CompetitionModel.fromFirestore(doc);
@@ -88,6 +98,7 @@ class CompetitionRepository {
     required String championName,
     bool markCompleted = true,
   }) async {
+    if (AppDemoConfig.useMockData) return;
     await _firestore.collection(_collection).doc(competitionId).update({
       'champion_id': championId,
       'champion_name': championName,
@@ -96,6 +107,9 @@ class CompetitionRepository {
   }
 
   Stream<List<CompetitionModel>> getAllCompetitions() {
+    if (AppDemoConfig.useMockData) {
+      return Stream.value(AppDemoConfig.mockCompetitions);
+    }
     return _firestore.collection(_collection).snapshots().map((snapshot) {
       final competitions = snapshot.docs
           .map((doc) => CompetitionModel.fromFirestore(doc))
@@ -105,7 +119,34 @@ class CompetitionRepository {
     });
   }
 
+  Stream<List<CompetitionModel>> getCompetitionsByCollege(String college) {
+    if (AppDemoConfig.useMockData) {
+      // Filter by college in mock data
+      final filtered = AppDemoConfig.mockCompetitions
+          .where((comp) => comp.college == college)
+          .toList();
+      return Stream.value(filtered);
+    }
+    return _firestore
+        .collection(_collection)
+        .where('college', isEqualTo: college)
+        .snapshots()
+        .map((snapshot) {
+      final competitions = snapshot.docs
+          .map((doc) => CompetitionModel.fromFirestore(doc))
+          .toList();
+      competitions.sort((a, b) => b.startDate.compareTo(a.startDate));
+      return competitions;
+    });
+  }
+
   Stream<List<CompetitionModel>> getChampionCompetitions() {
+    if (AppDemoConfig.useMockData) {
+      final filtered = AppDemoConfig.mockCompetitions
+          .where((comp) => comp.championId != null)
+          .toList();
+      return Stream.value(filtered);
+    }
     return _firestore.collection(_collection).snapshots().map((snapshot) {
       final competitions = snapshot.docs
           .map((doc) => CompetitionModel.fromFirestore(doc))
@@ -117,6 +158,12 @@ class CompetitionRepository {
   }
 
   Stream<List<CompetitionModel>> getCompetitionsBySport(String sportId) {
+    if (AppDemoConfig.useMockData) {
+      final filtered = AppDemoConfig.mockCompetitions
+          .where((comp) => comp.sportId == sportId)
+          .toList();
+      return Stream.value(filtered);
+    }
     return _firestore
         .collection(_collection)
         .where('sport_id', isEqualTo: sportId)
@@ -129,6 +176,12 @@ class CompetitionRepository {
   }
 
   Stream<List<CompetitionModel>> getActiveCompetitions() {
+    if (AppDemoConfig.useMockData) {
+      final filtered = AppDemoConfig.mockCompetitions
+          .where((comp) => comp.status == 'active')
+          .toList();
+      return Stream.value(filtered);
+    }
     return _firestore
         .collection(_collection)
         .where('status', isEqualTo: 'active')

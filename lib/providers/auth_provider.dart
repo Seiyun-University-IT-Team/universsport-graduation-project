@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../firebase_options.dart';
 import '../models/user_model.dart';
 import '../services/notification_service.dart';
@@ -14,13 +15,16 @@ class AuthProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool _isAuthReady = false;
   bool _isRunningAuthOperation = false;
+  bool _seenOnboarding = false;
 
   UserModel? get currentUser => _currentUser;
   bool get isAuthenticated => _currentUser != null;
   bool get isLoading => _isLoading;
   bool get isAuthReady => _isAuthReady;
+  bool get seenOnboarding => _seenOnboarding;
 
   AuthProvider() {
+    _initOnboarding();
     // Listen to Firebase Auth state changes globally
     _auth.authStateChanges().listen((User? user) async {
       if (_isRunningAuthOperation) return;
@@ -36,6 +40,27 @@ class AuthProvider extends ChangeNotifier {
         notifyListeners();
       }
     });
+  }
+
+  Future<void> _initOnboarding() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _seenOnboarding = prefs.getBool('seen_onboarding') ?? false;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error initializing onboarding: $e');
+    }
+  }
+
+  Future<void> completeOnboarding() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('seen_onboarding', true);
+      _seenOnboarding = true;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error saving onboarding completion: $e');
+    }
   }
 
   Future<bool> _fetchAndSetUser(String uid) async {

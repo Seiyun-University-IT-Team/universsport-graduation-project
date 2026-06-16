@@ -22,6 +22,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _nameController = TextEditingController();
   final _studentIdController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController(); // إضافة متحكم تأكيد كلمة المرور
   bool _isPasswordVisible = false;
 
   @override
@@ -30,6 +31,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     _nameController.dispose();
     _studentIdController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose(); // تدمير متحكم تأكيد كلمة المرور
     super.dispose();
   }
 
@@ -69,7 +71,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 controller: _nameController,
                 decoration: const InputDecoration(labelText: 'الاسم الرباعي'),
                 validator: (value) =>
-                    value == null || value.trim().isEmpty ? 'مطلوب' : null,
+                value == null || value.trim().isEmpty ? 'مطلوب' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -94,7 +96,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 controller: _studentIdController,
                 decoration: const InputDecoration(labelText: 'الرقم الجامعي'),
                 validator: (value) =>
-                    value == null || value.trim().isEmpty ? 'مطلوب' : null,
+                value == null || value.trim().isEmpty ? 'مطلوب' : null,
               ),
               const SizedBox(height: 16),
               _CollegeDropdown(selectedCollege: selectedCollege),
@@ -107,7 +109,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               Builder(
                 builder: (context) {
                   final maxLevel =
-                      selectedCollege?.name.contains('الطب') == true ? 6 : 4;
+                  selectedCollege?.name.contains('الطب') == true ? 6 : 4;
                   final levelNames = [
                     'الأول',
                     'الثاني',
@@ -118,9 +120,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   ];
 
                   return DropdownButtonFormField<int>(
-                    initialValue:
-                        (selectedAcademicLevel != null &&
-                            selectedAcademicLevel <= maxLevel)
+                    initialValue: (selectedAcademicLevel != null &&
+                        selectedAcademicLevel <= maxLevel)
                         ? selectedAcademicLevel
                         : null,
                     decoration: const InputDecoration(
@@ -139,7 +140,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           .select(level);
                     },
                     validator: (value) =>
-                        value == null ? 'المستوى الدراسي مطلوب' : null,
+                    value == null ? 'المستوى الدراسي مطلوب' : null,
                   );
                 },
               ),
@@ -173,59 +174,77 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   return null;
                 },
               ),
+              const SizedBox(height: 16),
+              // إضافة حقل تأكيد كلمة المرور هنا
+              TextFormField(
+                controller: _confirmPasswordController,
+                obscureText: !_isPasswordVisible, // يتبع نفس حالة رؤية كلمة المرور
+                decoration: const InputDecoration(
+                  labelText: 'تأكيد كلمة المرور',
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'مطلوب تأكيد كلمة المرور';
+                  }
+                  if (value != _passwordController.text) {
+                    return 'كلمتا المرور غير متطابقتين';
+                  }
+                  return null;
+                },
+              ),
               const SizedBox(height: 32),
               authProvider.isLoading
                   ? const CircularProgressIndicator()
                   : ElevatedButton(
-                      onPressed: () async {
-                        final isValid = _formKey.currentState!.validate();
-                        final college = ref.read(selectedCollegeProvider);
-                        final department = ref.read(selectedDepartmentProvider);
-                        final academicLevel = ref.read(
-                          selectedAcademicLevelProvider,
-                        );
+                onPressed: () async {
+                  final isValid = _formKey.currentState!.validate();
+                  final college = ref.read(selectedCollegeProvider);
+                  final department = ref.read(selectedDepartmentProvider);
+                  final academicLevel = ref.read(
+                    selectedAcademicLevelProvider,
+                  );
 
-                        if (!isValid ||
-                            college == null ||
-                            department == null ||
-                            academicLevel == null) {
-                          return;
-                        }
+                  if (!isValid ||
+                      college == null ||
+                      department == null ||
+                      academicLevel == null) {
+                    return;
+                  }
 
-                        try {
-                          await authProvider.registerStudent(
-                            email: _emailController.text.trim(),
-                            name: _nameController.text.trim(),
-                            studentId: _studentIdController.text.trim(),
-                            college: college.name,
-                            department: department.name,
-                            academicLevel: academicLevel.toString(),
-                            password: _passwordController.text,
-                          );
-                          if (!context.mounted) return;
+                  try {
+                    await authProvider.registerStudent(
+                      email: _emailController.text.trim(),
+                      name: _nameController.text.trim(),
+                      studentId: _studentIdController.text.trim(),
+                      college: college.name,
+                      department: department.name,
+                      academicLevel: academicLevel.toString(),
+                      password: _passwordController.text,
+                    );
+                    if (!context.mounted) return;
 
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'تم إنشاء الحساب بنجاح. الرجاء التحقق من بريدك الإلكتروني لتأكيد الحساب قبل تسجيل الدخول.',
-                              ),
-                              duration: Duration(seconds: 5),
-                            ),
-                          );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'تم إنشاء الحساب بنجاح. الرجاء التحقق من بريدك الإلكتروني لتأكيد الحساب قبل تسجيل الدخول. إذا لم تجد رسالة التحقق في صندوق الوارد، يرجى التحقق من مجلد الرسائل غير المرغوب فيها (Spam).',
+                        ),
+                        duration: Duration(seconds: 10),
+                      ),
+                    );
 
-                          // Return to login screen since they need to verify email
-                          context.pop();
-                        } catch (e) {
-                          if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(_registrationErrorMessage(e)),
-                            ),
-                          );
-                        }
-                      },
-                      child: const Text('تسجيل وإنشاء الحساب'),
-                    ),
+                    // Return to login screen since they need to verify email
+                    context.pop();
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(_registrationErrorMessage(e)),
+                      ),
+                    );
+                  }
+                },
+                child: const Text('تسجيل وإنشاء الحساب'),
+              ),
             ],
           ),
         ),
@@ -245,9 +264,8 @@ class _CollegeDropdown extends ConsumerWidget {
 
     return collegesAsync.when(
       data: (colleges) {
-        final selectedValue = colleges.contains(selectedCollege)
-            ? selectedCollege
-            : null;
+        final selectedValue =
+        colleges.contains(selectedCollege) ? selectedCollege : null;
 
         return DropdownButtonFormField<College>(
           initialValue: selectedValue,
@@ -255,18 +273,18 @@ class _CollegeDropdown extends ConsumerWidget {
           items: colleges
               .map(
                 (college) => DropdownMenuItem<College>(
-                  value: college,
-                  child: Text(college.name),
-                ),
-              )
+              value: college,
+              child: Text(college.name),
+            ),
+          )
               .toList(),
           onChanged: colleges.isEmpty
               ? null
               : (college) {
-                  ref.read(selectedCollegeProvider.notifier).select(college);
-                  ref.read(selectedDepartmentProvider.notifier).select(null);
-                  ref.read(selectedAcademicLevelProvider.notifier).select(null);
-                },
+            ref.read(selectedCollegeProvider.notifier).select(college);
+            ref.read(selectedDepartmentProvider.notifier).select(null);
+            ref.read(selectedAcademicLevelProvider.notifier).select(null);
+          },
           validator: (value) {
             if (colleges.isEmpty) {
               return 'لا توجد كليات متاحة';
@@ -322,18 +340,18 @@ class _DepartmentDropdown extends ConsumerWidget {
           items: departments
               .map(
                 (department) => DropdownMenuItem<Department>(
-                  value: department,
-                  child: Text(department.name),
-                ),
-              )
+              value: department,
+              child: Text(department.name),
+            ),
+          )
               .toList(),
           onChanged: departments.isEmpty
               ? null
               : (department) {
-                  ref
-                      .read(selectedDepartmentProvider.notifier)
-                      .select(department);
-                },
+            ref
+                .read(selectedDepartmentProvider.notifier)
+                .select(department);
+          },
           validator: (value) {
             if (departments.isEmpty) {
               return 'لا توجد أقسام لهذه الكلية';

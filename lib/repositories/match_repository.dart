@@ -1,15 +1,18 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/match_model.dart';
+import '../core/demo_config.dart';
 
 class MatchRepository {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  FirebaseFirestore get _firestore => FirebaseFirestore.instance;
   final String _collection = 'matches';
 
   Future<void> addMatch(MatchModel match) async {
+    if (AppDemoConfig.useMockData) return;
     await _firestore.collection(_collection).doc(match.id).set(match.toMap());
   }
 
   Future<void> updateMatch(MatchModel match) async {
+    if (AppDemoConfig.useMockData) return;
     await _firestore
         .collection(_collection)
         .doc(match.id)
@@ -17,16 +20,30 @@ class MatchRepository {
   }
 
   Future<MatchModel?> getMatchById(String id) async {
+    if (AppDemoConfig.useMockData) {
+      try {
+        return AppDemoConfig.mockMatches.firstWhere((m) => m.id == id);
+      } catch (_) {
+        return null;
+      }
+    }
     final doc = await _firestore.collection(_collection).doc(id).get();
     if (!doc.exists) return null;
     return MatchModel.fromFirestore(doc);
   }
 
   Future<void> deleteMatch(String id) async {
+    if (AppDemoConfig.useMockData) return;
     await _firestore.collection(_collection).doc(id).delete();
   }
 
   Stream<List<MatchModel>> getMatchesByCompetition(String competitionId) {
+    if (AppDemoConfig.useMockData) {
+      final filtered = AppDemoConfig.mockMatches
+          .where((m) => m.competitionId == competitionId)
+          .toList();
+      return Stream.value(filtered);
+    }
     return _firestore
         .collection(_collection)
         .where('competition_id', isEqualTo: competitionId)
@@ -41,6 +58,9 @@ class MatchRepository {
   }
 
   Stream<List<MatchModel>> getAllMatches() {
+    if (AppDemoConfig.useMockData) {
+      return Stream.value(AppDemoConfig.mockMatches);
+    }
     return _firestore.collection(_collection).snapshots().map((snapshot) {
       final matches = snapshot.docs
           .map((doc) => MatchModel.fromFirestore(doc))
@@ -51,6 +71,12 @@ class MatchRepository {
   }
 
   Stream<List<MatchModel>> getUpcomingMatches() {
+    if (AppDemoConfig.useMockData) {
+      final filtered = AppDemoConfig.mockMatches
+          .where((m) => m.status == 'scheduled')
+          .toList();
+      return Stream.value(filtered);
+    }
     return _firestore
         .collection(_collection)
         .where('status', isEqualTo: 'scheduled')
@@ -65,6 +91,12 @@ class MatchRepository {
   }
 
   Stream<List<MatchModel>> getCompletedMatches() {
+    if (AppDemoConfig.useMockData) {
+      final filtered = AppDemoConfig.mockMatches
+          .where((m) => m.status == 'completed')
+          .toList();
+      return Stream.value(filtered);
+    }
     return _firestore
         .collection(_collection)
         .where('status', isEqualTo: 'completed')
@@ -78,3 +110,4 @@ class MatchRepository {
         });
   }
 }
+

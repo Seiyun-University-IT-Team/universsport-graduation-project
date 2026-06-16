@@ -20,13 +20,14 @@ class _AddSportScreenState extends State<AddSportScreen> {
   bool _isLoading = false;
   String _selectedIcon = 'sports_soccer';
 
-  final Map<String, IconData> _availableIcons = {
-    'sports_soccer': Icons.sports_soccer,
-    'sports_basketball': Icons.sports_basketball,
-    'sports_volleyball': Icons.sports_volleyball,
-    'sports_tennis': Icons.sports_tennis,
-    'pool': Icons.pool,
-    'fitness_center': Icons.fitness_center,
+  // تعديل الخريطة لتشمل الأيقونة والاسم العربي الخاص بها
+  final Map<String, Map<String, dynamic>> _availableIcons = {
+    'sports_soccer': {'icon': Icons.sports_soccer, 'label': 'كرة قدم'},
+    'sports_basketball': {'icon': Icons.sports_basketball, 'label': 'كرة سلة'},
+    'sports_volleyball': {'icon': Icons.sports_volleyball, 'label': 'كرة طائرة'},
+    'sports_tennis': {'icon': Icons.sports_tennis, 'label': 'تنس'},
+    'pool': {'icon': Icons.pool, 'label': 'سباحة'},
+    'fitness_center': {'icon': Icons.fitness_center, 'label': 'لياقة بدنية'},
   };
 
   Future<void> _submitSport() async {
@@ -53,7 +54,7 @@ class _AddSportScreenState extends State<AddSportScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('حدث خطأ: \$e')),
+        SnackBar(content: Text('حدث خطأ: $e')),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -111,11 +112,15 @@ class _AddSportScreenState extends State<AddSportScreen> {
                 runSpacing: 12,
                 children: _availableIcons.entries.map((entry) {
                   final isSelected = _selectedIcon == entry.key;
+                  final iconData = entry.value['icon'] as IconData;
+                  final label = entry.value['label'] as String;
+
                   return InkWell(
                     onTap: () => setState(() => _selectedIcon = entry.key),
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
-                      padding: const EdgeInsets.all(12),
+                      width: 80, // تحديد عرض ثابت متناسق ليناسب الأيقونة والنص تحتها
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
                       decoration: BoxDecoration(
                         color: isSelected ? AppTheme.primaryColor : Colors.white,
                         border: Border.all(
@@ -123,10 +128,25 @@ class _AddSportScreenState extends State<AddSportScreen> {
                         ),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Icon(
-                        entry.value,
-                        size: 32,
-                        color: isSelected ? Colors.white : Colors.grey.shade700,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            iconData,
+                            size: 32,
+                            color: isSelected ? Colors.white : Colors.grey.shade700,
+                          ),
+                          const SizedBox(height: 6), // مسافة بين الأيقونة والنص
+                          Text(
+                            label,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: isSelected ? Colors.white : Colors.grey.shade800,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   );
@@ -136,9 +156,9 @@ class _AddSportScreenState extends State<AddSportScreen> {
               _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : ElevatedButton(
-                      onPressed: _submitSport,
-                      child: const Text('حفظ وإضافة'),
-                    ),
+                onPressed: _submitSport,
+                child: const Text('حفظ وإضافة'),
+              ),
             ],
           ),
         ),

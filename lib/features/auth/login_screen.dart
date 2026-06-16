@@ -16,6 +16,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isPasswordVisible = false;
+  bool _rememberMe = false; // إضافة متغير حالة خيار تذكرني
 
   @override
   Widget build(BuildContext context) {
@@ -30,18 +31,20 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.sports_soccer,
-                  size: 100,
-                  color: AppTheme.primaryColor,
+                // استبدال الأيقونة القديمة بصورة شعار المشروع بدقة وأبعاد متناسقة
+                Image.asset(
+                  'assets/images/logo2.png',
+                  height: 120, // ارتفاع مناسب ومريح للعين في واجهة الدخول
+                  width: 120,
+                  fit: BoxFit.contain,
                 ),
                 const SizedBox(height: 16),
                 Text(
                   'رياضة جامعة سيئون',
                   style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                    fontSize: 28,
-                    color: AppTheme.primaryColor,
-                  ),
+                        fontSize: 28,
+                        color: AppTheme.primaryColor,
+                      ),
                 ),
                 const SizedBox(height: 48),
                 TextFormField(
@@ -76,7 +79,35 @@ class _LoginScreenState extends State<LoginScreen> {
                   validator: (value) =>
                       value!.isEmpty ? 'يرجى ادخال كلمة المرور' : null,
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 12),
+                // إضافة خيار تذكرني هنا
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      height: 24,
+                      width: 24,
+                      child: Checkbox(
+                        value: _rememberMe,
+                        activeColor: AppTheme.primaryColor,
+                        onChanged: (value) {
+                          setState(() {
+                            _rememberMe = value ?? false;
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'تذكرني',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
                 authProvider.isLoading
                     ? const CircularProgressIndicator()
                     : ElevatedButton(
