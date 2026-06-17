@@ -20,6 +20,12 @@ service cloud.firestore {
           signedInUser().data.role == 'admin';
     }
 
+    function isSupervisor() {
+      return isSignedIn() &&
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          signedInUser().data.role == 'supervisor';
+    }
+
     function keepsSameRole() {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']);
     }
@@ -66,9 +72,13 @@ service cloud.firestore {
       allow create: if isSignedIn() &&
           request.resource.data.user_id == request.auth.uid &&
           request.resource.data.status == 'pending';
-      allow read: if isAdmin() ||
+      allow read: if isAdmin() || isSupervisor() ||
           (isSignedIn() && resource.data.user_id == request.auth.uid);
-      allow update, delete: if isAdmin();
+      allow update: if isAdmin() ||
+          (isSupervisor() &&
+           resource.data.competition_id is string &&
+           get(/databases/$(database)/documents/competitions/$(resource.data.competition_id)).data.college == signedInUser().data.college);
+      allow delete: if isAdmin();
     }
 
     match /notifications/{notificationId} {

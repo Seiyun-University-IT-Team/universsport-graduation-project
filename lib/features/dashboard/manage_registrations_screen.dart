@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+
+import '../../providers/auth_provider.dart';
 
 import '../../core/team_identity.dart';
 import '../../models/competition_model.dart';
@@ -32,6 +35,43 @@ class _ManageRegistrationsScreenState extends State<ManageRegistrationsScreen> {
       <String, Future<_RegistrationDetails>>{};
   final Set<String> _updatingRegistrationIds = <String>{};
   bool _isApprovingAll = false;
+  final Map<String, String?> _competitionCollegeCache = {};
+
+  Stream<List<RegistrationModel>> _getPendingStream() {
+    final user =
+        Provider.of<AuthProvider>(context, listen: false).currentUser;
+    final baseStream = _registrationRepository.getPendingRegistrations();
+
+    if (user == null || user.isAdmin) return baseStream;
+
+    final supervisorCollege = user.college?.trim();
+    if (supervisorCollege == null || supervisorCollege.isEmpty) {
+      return Stream.value([]);
+    }
+
+    return baseStream.asyncMap((registrations) async {
+      final filtered = <RegistrationModel>[];
+      for (final reg in registrations) {
+        if (reg.competitionId == null) continue;
+        final college = await _getCompetitionCollege(reg.competitionId!);
+        if (college == supervisorCollege) {
+          filtered.add(reg);
+        }
+      }
+      return filtered;
+    });
+  }
+
+  Future<String?> _getCompetitionCollege(String competitionId) async {
+    if (_competitionCollegeCache.containsKey(competitionId)) {
+      return _competitionCollegeCache[competitionId];
+    }
+    final comp =
+        await _competitionRepository.getCompetitionById(competitionId);
+    final college = comp?.college?.trim();
+    _competitionCollegeCache[competitionId] = college;
+    return college;
+  }
 
   Future<void> _updateRegistrationStatus(
     RegistrationModel registration,
@@ -397,7 +437,7 @@ class _ManageRegistrationsScreenState extends State<ManageRegistrationsScreen> {
         ),
         actions: [
           StreamBuilder<List<RegistrationModel>>(
-            stream: _registrationRepository.getPendingRegistrations(),
+            stream: _getPendingStream(),
             builder: (context, snapshot) {
               final regs = snapshot.data ?? [];
               final hasPending = regs.any((r) => r.status == 'pending');
@@ -429,7 +469,7 @@ class _ManageRegistrationsScreenState extends State<ManageRegistrationsScreen> {
         ],
       ),
       body: StreamBuilder<List<RegistrationModel>>(
-        stream: _registrationRepository.getPendingRegistrations(),
+        stream: _getPendingStream(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting &&
               !snapshot.hasData) {
